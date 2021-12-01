@@ -33,7 +33,6 @@ from paths import (
 )
 from utils import (
     GitRepo,
-    replace_file_contents,
     run_and_exit_on_failure,
     run_quiet,
     run_quiet_and_exit_on_failure,
@@ -210,22 +209,6 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
         RUST_PREBUILT_REPO.add(target_and_version_path)
 
 
-def update_root_build_file(version: str) -> None:
-    """Update the Rust version number in the root Android.bp file"""
-
-    ROOT_BUILD_FILE_PATH: Path = RUST_PREBUILT_PATH / ANDROID_BP
-    with open(ROOT_BUILD_FILE_PATH, "r+") as f:
-        replace_file_contents(f, re.sub(VERSION_PATTERN, version, f.read()))
-
-    # Add the file to Git after we are sure it has been written to and closed.
-    RUST_PREBUILT_REPO.add(ROOT_BUILD_FILE_PATH)
-
-
-def update_build_files(version: str, is_local: bool) -> None:
-    print("Updating build files")
-    update_root_build_file(version)
-
-
 def main() -> None:
     args = parse_args()
     branch_name: str = args.branch or make_branch_name(args.version, isinstance(args.prebuilt_ident, Path))
@@ -234,7 +217,6 @@ def main() -> None:
     artifact_path_map, manifest_path = prepare_prebuilt_artifact(args.prebuilt_ident)
     RUST_PREBUILT_REPO.create_or_checkout(branch_name, args.overwrite)
     unpack_prebuilt_artifacts(artifact_path_map, manifest_path, args.version, args.overwrite)
-    update_build_files(args.version, isinstance(args.prebuilt_ident, Path))
     commit_message = make_commit_message(args.version, args.prebuilt_ident, args.issue)
     RUST_PREBUILT_REPO.amend_or_commit(commit_message)
     print("Done")
