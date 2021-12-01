@@ -40,11 +40,14 @@ def apply_patches(code_dir: Path, patch_dir: Path, no_patch_abort: bool = False)
         if result.returncode != 0 and not no_patch_abort:
             print(f"\nBuild failed when applying patch {filepath}")
             print("If developing locally, try the --no-patch-abort flag")
-            print("\nOutput (stdout):")
-            print(result.stdout.decode('UTF-8'))
-            print("\nOutput (stderr):")
-            print(result.stderr.decode('UTF-8'))
-            print()
+            if result.stdout:
+                print("\nOutput (stdout):")
+                print(result.stdout.decode('UTF-8'))
+            if result.stderr:
+                print("\nOutput (stderr):")
+                print(result.stderr.decode('UTF-8'))
+
+            print("Failed")
 
             sys.exit(result.returncode)
 
