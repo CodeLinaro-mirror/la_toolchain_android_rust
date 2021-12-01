@@ -1,0 +1,31 @@
+From 9057936a9aba6b85a3de119d061c7a7168f60ce8 Mon Sep 17 00:00:00 2001
+From: Eric Huss <eric@huss.org>
+Date: Wed, 3 Nov 2021 13:39:37 -0700
+Subject: [PATCH] Demote metadata load warning to "info".
+
+---
+ compiler/rustc_metadata/src/locator.rs | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/compiler/rustc_metadata/src/locator.rs b/compiler/rustc_metadata/src/locator.rs
+index bbd30c9327a6c..8db2291dfcfaa 100644
+--- a/compiler/rustc_metadata/src/locator.rs
++++ b/compiler/rustc_metadata/src/locator.rs
+@@ -236,7 +236,7 @@ use std::fmt::Write as _;
+ use std::io::{Read, Result as IoResult, Write};
+ use std::path::{Path, PathBuf};
+ use std::{cmp, fmt, fs};
+-use tracing::{debug, info, warn};
++use tracing::{debug, info};
+
+ #[derive(Clone)]
+ crate struct CrateLocator<'a> {
+@@ -549,7 +549,7 @@ impl<'a> CrateLocator<'a> {
+                         }
+                     }
+                     Err(err) => {
+-                        warn!("no metadata found: {}", err);
++                        info!("no metadata found: {}", err);
+                         continue;
+                     }
+                 };
