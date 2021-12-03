@@ -65,6 +65,8 @@ NDK_PATH:         Path = WORKSPACE_PATH / 'toolchain' / 'prebuilts' / 'ndk' / 'r
 NDK_LLVM_PATH:    Path = NDK_PATH / 'toolchains' / 'llvm' / 'prebuilt' / 'linux-x86_64'
 NDK_SYSROOT_PATH: Path = NDK_LLVM_PATH / 'sysroot'
 
+SOONG_PATH: Path = WORKSPACE_PATH / 'build' / 'soong'
+
 #
 # Paths to toolchain executables
 #

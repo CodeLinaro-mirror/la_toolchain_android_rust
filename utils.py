@@ -32,7 +32,7 @@ SUBPROCESS_RUN_QUIET_DEFAULTS: dict[str, object] = {
     'stderr': subprocess.DEVNULL,
 }
 
-VERSION_PATTERN = re.compile("\d+\.\d+\.\d+")
+VERSION_PATTERN = re.compile("\d+\.\d+\.\d+(p\d+)?")
 
 #
 # Type Functions
@@ -185,3 +185,13 @@ def repo_start(path: Path, branch_name: str) -> None:
         f"repo start {branch_name}",
         "Failed to 'repo init' branch '%s' for Git repo %s" % (path, branch_name),
         cwd=path)
+
+#
+# File helpers
+#
+
+def replace_file_contents(f: TextIO, new_contents: str) -> None:
+    f.seek(0)
+    f.write(new_contents)
+    f.truncate()
+    f.flush()

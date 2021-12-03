@@ -29,10 +29,12 @@ import build_platform
 from paths import (
     DOWNLOADS_PATH,
     FETCH_ARTIFACT_PATH,
-    RUST_PREBUILT_PATH
+    RUST_PREBUILT_PATH,
+    SOONG_PATH
 )
 from utils import (
     GitRepo,
+    replace_file_contents,
     run_and_exit_on_failure,
     run_quiet,
     run_quiet_and_exit_on_failure,
@@ -57,6 +59,7 @@ HOST_TARGET_DEFAULT:  str = "linux-x86"
 RLIB_NAME_PATTERN: re.Pattern[str] = re.compile("libstd-([a-zA-z\d]+)\.rlib")
 
 RUST_PREBUILT_REPO: GitRepo = GitRepo(RUST_PREBUILT_PATH)
+SOONG_REPO: GitRepo = GitRepo(SOONG_PATH)
 
 #
 # String operations
@@ -209,6 +212,19 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
         RUST_PREBUILT_REPO.add(target_and_version_path)
 
 
+def update_soong(version: str) -> None:
+    """Update the Rust version number in Soong"""
+
+    print("Updating Soong's RustDefaultVersion")
+    SOONG_GLOBAL_DEF_PATH: Path = SOONG_PATH / "rust" / "config" / "global.go"
+    with open(SOONG_GLOBAL_DEF_PATH, "r+") as f:
+        replace_file_contents(f, re.sub(VERSION_PATTERN, version, f.read()))
+
+    # Add the file to Git after we are sure it has been written to and closed.
+    SOONG_REPO.add(SOONG_GLOBAL_DEF_PATH)
+    SOONG_REPO.commit(f"Update `RustDefaultVersion` to {version}")
+
+
 def main() -> None:
     args = parse_args()
     branch_name: str = args.branch or make_branch_name(args.version, isinstance(args.prebuilt_ident, Path))
@@ -219,6 +235,7 @@ def main() -> None:
     unpack_prebuilt_artifacts(artifact_path_map, manifest_path, args.version, args.overwrite)
     commit_message = make_commit_message(args.version, args.prebuilt_ident, args.issue)
     RUST_PREBUILT_REPO.amend_or_commit(commit_message)
+    update_soong(args.version)
     print("Done")
 
     sys.exit(0)
