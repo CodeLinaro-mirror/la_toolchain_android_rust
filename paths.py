@@ -18,7 +18,7 @@ from pathlib import Path
 
 import build_platform
 
-RUST_VERSION_STAGE0: str = '1.56.1'
+RUST_VERSION_STAGE0: str = '1.57.0'
 CLANG_REVISION:      str = 'r433403'
 CLANG_NAME:          str = 'clang-{0}'.format(CLANG_REVISION)
 GLIBC_VERSION:       str = '2.17-4.8'
