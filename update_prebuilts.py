@@ -20,10 +20,11 @@ import argparse
 import inspect
 from functools import cache
 from pathlib import Path
+import os
 import re
 import shutil
 import sys
-from typing import Optional, Union
+from typing import KeysView, Optional, Union
 
 import build_platform
 from paths import (
@@ -112,7 +113,7 @@ def fetch_build_server_artifact(target: str, build_id: int, build_server_name: s
     dest: Path = DOWNLOADS_PATH / host_name
 
     if dest.exists():
-        print(f"Artifact {build_server_name} has already been downloaded as {host_name}")
+        print(f"Artifact {build_server_name} for {target} has already been downloaded as {host_name}")
 
     else:
         ensure_gcert_valid()
@@ -212,6 +213,26 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
         RUST_PREBUILT_REPO.add(target_and_version_path)
 
 
+def update_symlink(targets: KeysView[str], version: str) -> None:
+    """Update the symlinks in the stable directory when we update a target"""
+
+    STABLE_BINARIES = [
+        "rust-analyzer",
+        "rustfmt"
+    ]
+
+    print("Updating stable symlinks")
+    for target in targets:
+        stable_root_path: Path = RUST_PREBUILT_PATH / target / "stable"
+        for binary in STABLE_BINARIES:
+            stable_bin_path = stable_root_path / binary
+            stable_bin_path.unlink()
+            version_bin_path = RUST_PREBUILT_PATH / target / version / "bin" / binary
+            # os.path.relpath() is used here because pathlib.Path.relative_to()
+            # requires that one path be a subcomponent of the other.
+            stable_bin_path.symlink_to(os.path.relpath(version_bin_path, stable_root_path))
+
+
 def update_soong(version: str) -> None:
     """Update the Rust version number in Soong"""
 
@@ -233,6 +254,7 @@ def main() -> None:
     artifact_path_map, manifest_path = prepare_prebuilt_artifact(args.prebuilt_ident)
     RUST_PREBUILT_REPO.create_or_checkout(branch_name, args.overwrite)
     unpack_prebuilt_artifacts(artifact_path_map, manifest_path, args.version, args.overwrite)
+    update_symlink(artifact_path_map.keys(), args.version)
     commit_message = make_commit_message(args.version, args.prebuilt_ident, args.issue)
     RUST_PREBUILT_REPO.amend_or_commit(commit_message)
     update_soong(args.version)
