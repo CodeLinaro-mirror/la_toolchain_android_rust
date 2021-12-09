@@ -39,6 +39,7 @@ TEMPLATES_PATH: Path = TOOLCHAIN_PATH / 'templates'
 OUT_PATH:             Path = WORKSPACE_PATH / 'out'
 OUT_PATH_RUST_SOURCE: Path = OUT_PATH / 'rustc'
 OUT_PATH_PACKAGE:     Path = OUT_PATH / 'package'
+OUT_PATH_PATCHS_LOG:  Path = OUT_PATH / 'patches.log'
 OUT_PATH_STDLIB_SRCS: Path = OUT_PATH_PACKAGE / 'src' / 'stdlibs'
 OUT_PATH_WRAPPERS:    Path = OUT_PATH / 'wrappers'
 

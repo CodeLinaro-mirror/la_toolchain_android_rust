@@ -23,33 +23,51 @@ import subprocess
 import sys
 
 import build_platform
+from paths import OUT_PATH_PATCHS_LOG
 from utils import prepare_command, run_quiet_and_exit_on_failure, run_quiet
 
 def apply_patches(code_dir: Path, patch_dir: Path, no_patch_abort: bool = False) -> None:
     patch_list    = sorted(patch_dir.glob("rustc-*"))
     count_padding = len(str(len(patch_list)))
 
-    for idx, filepath in enumerate(patch_list):
-        print("\33[2K\rApplying patch ({cur:>{width}}/{total}): {name}".format(
-                cur=(idx + 1), width=count_padding, total=len(patch_list), name=filepath.name),
-            end="")
+    # We will overwrite the log file if it already existed.
+    with OUT_PATH_PATCHS_LOG.open("w") as f:
+        for idx, filepath in enumerate(patch_list):
+            print("\33[2K\rApplying patch ({cur:>{width}}/{total}): {name}".format(
+                    cur=(idx + 1), width=count_padding, total=len(patch_list), name=filepath.name),
+                end="")
 
-        command_list: list[str] = prepare_command(f"patch -p1 -N -r - -i {filepath}")
-        result = subprocess.run(command_list, cwd=code_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            command_list: list[str] = prepare_command(f"patch -p1 -N -r - -i {filepath}")
+            # We collect the stdout and stderr output and then print it to the
+            # log so that when an error is encountered we can display the
+            # relevent message and don't have to refer the user to the log.
+            # The log is intended as a resource for investigating patch
+            # drift.
+            result = subprocess.run(command_list, cwd=code_dir, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            if result.stdout or result.stderr:
+                f.write(f"Patch {filepath.name}:\n")
+                if result.stdout:
+                    f.write(result.stdout.decode("UTF-8") + "\n")
+                if result.stderr:
+                    f.write(result.stderr.decode("UTF-8") + "\n")
 
-        if result.returncode != 0 and not no_patch_abort:
-            print(f"\nBuild failed when applying patch {filepath}")
-            print("If developing locally, try the --no-patch-abort flag")
-            if result.stdout:
-                print("\nOutput (stdout):")
-                print(result.stdout.decode('UTF-8'))
-            if result.stderr:
-                print("\nOutput (stderr):")
-                print(result.stderr.decode('UTF-8'))
+            if result.returncode != 0 and not no_patch_abort:
+                print(f"\nBuild failed when applying patch {filepath}")
+                print("If developing locally, try the --no-patch-abort flag")
+                if result.stdout:
+                    print("\nOutput (stdout):")
+                    print(result.stdout.decode("UTF-8"))
+                if result.stderr:
+                    print("\nOutput (stderr):")
+                    print(result.stderr.decode("UTF-8"))
 
-            print("Failed")
+                print("Failed")
 
-            sys.exit(result.returncode)
+                f.truncate()
+                sys.exit(result.returncode)
+
+        # Remove any possible leftovers from the previous log
+        f.truncate()
 
     # If all patches applied cleanly we need to advance to the next line in the
     # terminal
