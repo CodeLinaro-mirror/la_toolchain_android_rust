@@ -31,7 +31,13 @@ DEVICE_TARGETS: list[str] = ["aarch64-linux-android", "armv7-linux-androideabi",
 
 ALL_TARGETS: list[str] = HOST_TARGETS + DEVICE_TARGETS
 
-LTO_DENYLIST_TARGETS: list[str] = ["armv7-linux-androideabi"]
+TARGET_SPECIFIC_LINKER_FLAGS: dict[str, str] = {
+    # When performing LTO, the LLVM IR generator doesn't know about these
+    # target specific symbols. By telling the linker about them ahead of time
+    # we avoid an error when they are encountered when the native code is
+    # emitted.  See b/201551165 for more information.
+    "armv7-linux-androideabi": "-u __aeabi_uidiv -u __aeabi_idiv0"
+}
 
 ANDROID_TARGET_VERSION: str = "31"
 
@@ -64,6 +70,9 @@ def host_config(target: str, macosx_flags: str, linker_flags: str) -> str:
     cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
     cxx_wrapper_name    = OUT_PATH_WRAPPERS / f"clang++-{target}"
     linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+
+    if target in TARGET_SPECIFIC_LINKER_FLAGS:
+        linker_flags += " " + TARGET_SPECIFIC_LINKER_FLAGS[target]
 
     instantiate_template_exec(
         HOST_CC_WRAPPER_TEMPLATE,
@@ -98,22 +107,21 @@ def host_config(target: str, macosx_flags: str, linker_flags: str) -> str:
             ranlib=RANLIB_PATH)
 
 
-def device_config(target: str, lto_flag: str, linker_flags: str) -> str:
+def device_config(target: str, linker_flags: str) -> str:
     cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
     linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
 
     clang_target = target + ANDROID_TARGET_VERSION
 
-    if target in LTO_DENYLIST_TARGETS:
-        lto_flag = ""
+    if target in TARGET_SPECIFIC_LINKER_FLAGS:
+        linker_flags += " " + TARGET_SPECIFIC_LINKER_FLAGS[target]
 
     instantiate_template_exec(
         DEVICE_CC_WRAPPER_TEMPLATE,
         cc_wrapper_name,
         real_cc=CC_PATH,
         target=clang_target,
-        sysroot=NDK_SYSROOT_PATH,
-        lto_flag=lto_flag)
+        sysroot=NDK_SYSROOT_PATH)
 
     instantiate_template_exec(
         DEVICE_LINKER_WRAPPER_TEMPLATE,
@@ -121,8 +129,7 @@ def device_config(target: str, lto_flag: str, linker_flags: str) -> str:
         real_cc=CC_PATH,
         target=clang_target,
         sysroot=NDK_SYSROOT_PATH,
-        linker_flags=linker_flags,
-        lto_flag=lto_flag)
+        linker_flags=linker_flags)
 
     with open(DEVICE_TARGET_TEMPLATE, "r") as template_file:
         return Template(template_file.read()).substitute(
@@ -204,17 +211,14 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     if args.lto != "none":
         env["RUSTFLAGS"] += " -C linker-plugin-lto"
 
-    # The LTO flag must be passed via the HOST_CFLAGS environment variable due
-    # to the fact that including it in the host c/cxx wrappers will cause the
+    # The LTO flag must be passed via the CFLAGS environment variable due to
+    # the fact that including it in the host c/cxx wrappers will cause the
     # CMake compiler detection routine to fail during LLVM configuration.
     #
-    # The Rust bootstrap system will include the value of HOST_CFLAGS in all
-    # invocations of either the C or C++ compiler for host targets.  Some
-    # device targets do not currently support LTO and as such the LTO flag is
-    # passed to supported device targets via the compiler wrappers, which is
-    # why HOST_CFLAGS is used instead of CFLAGS.  The LLVM build system will
-    # receive the LTO flag value from the llvm::cflags and llvm::cxxflags
-    # values in the config.toml file instantiated below.
+    # The Rust bootstrap system will include the value of CFLAGS in all
+    # invocations of either the C or C++ compiler for all host targets.  The
+    # LLVM build system will receive the LTO flag value from the llvm::cflags
+    # and llvm::cxxflags values in the config.toml file instantiated below.
     #
     # Because Rust's bootstrap system doesn't pass the linker wrapper into the
     # LLVM build system AND doesn't respect the LDFLAGS environment variable
@@ -225,14 +229,10 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     # Note: Rust's bootstrap system will use CFLAGS for both C and C++ compiler
     #       invocations.
     #
-    # Note: LTO is not enabled for device targets due to a bug either in the
-    #       ARMv7 implementation of compiler-rt or in LLD, which prevents the
-    #       resulting LTOed artifacts from linking properly.  See b/201551165.
-    #
-    # Note: The Rust bootstrap system will copy HOST_CFLAGS into CFLAGS when
+    # Note: The Rust bootstrap system will copy CFLAGS into CFLAGS when
     #       invoking the LLVM build system.  As a result the LTO argument will
     #       appear twice in the CMake language flag variables.
-    env["HOST_CFLAGS"] = lto_flag
+    env["CFLAGS"] = lto_flag
 
     #
     # Intantiate wrappers
@@ -241,7 +241,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     host_configs = "\n".join(
         [host_config(target, macosx_flags, host_linker_flags_escaped) for target in HOST_TARGETS])
     device_configs = "\n".join(
-        [device_config(target, lto_flag, device_linker_flags) for target in DEVICE_TARGETS])
+        [device_config(target, device_linker_flags) for target in DEVICE_TARGETS])
 
     all_targets = "[" + ",".join(
         ['"' + target + '"' for target in ALL_TARGETS]) + ']'
