@@ -19,7 +19,7 @@ from pathlib import Path
 import build_platform
 
 RUST_VERSION_STAGE0: str = '1.57.0'
-CLANG_REVISION:      str = 'r437112'
+CLANG_REVISION:      str = 'r437112b'
 CLANG_NAME:          str = 'clang-{0}'.format(CLANG_REVISION)
 GLIBC_VERSION:       str = '2.17-4.8'
 
