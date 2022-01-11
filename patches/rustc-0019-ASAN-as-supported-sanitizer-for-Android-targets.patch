@@ -7,23 +7,22 @@ Add Address Sanitizer as a supported sanitizer for Android targets.
 
 Change-Id: Iba6265d6efdefd88cccd209f91cc74ae424a6dcc
 ---
- compiler/rustc_target/src/spec/aarch64_linux_android.rs   | 3 ++-
+ compiler/rustc_target/src/spec/aarch64_linux_android.rs   | 2 +-
  compiler/rustc_target/src/spec/armv7_linux_androideabi.rs | 3 ++-
  compiler/rustc_target/src/spec/i686_linux_android.rs      | 7 +++++--
  compiler/rustc_target/src/spec/x86_64_linux_android.rs    | 7 +++++--
- 4 files changed, 14 insertions(+), 6 deletions(-)
+ 4 files changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/compiler/rustc_target/src/spec/aarch64_linux_android.rs b/compiler/rustc_target/src/spec/aarch64_linux_android.rs
-index 409cab72ec..7061984c95 100644
+index 1e9abbbe1e..9ceed05954 100644
 --- a/compiler/rustc_target/src/spec/aarch64_linux_android.rs
 +++ b/compiler/rustc_target/src/spec/aarch64_linux_android.rs
-@@ -14,7 +14,8 @@ pub fn target() -> Target {
+@@ -14,7 +14,7 @@ pub fn target() -> Target {
              // As documented in https://developer.android.com/ndk/guides/cpu-features.html
              // the neon (ASIMD) and FP must exist on all android aarch64 targets.
              features: "+neon,+fp-armv8".to_string(),
--            supported_sanitizers: SanitizerSet::HWADDRESS,
-+            supported_sanitizers: SanitizerSet::HWADDRESS
-+                | SanitizerSet::ADDRESS,
+-            supported_sanitizers: SanitizerSet::CFI | SanitizerSet::HWADDRESS,
++            supported_sanitizers: SanitizerSet::CFI | SanitizerSet::HWADDRESS | SanitizerSet::ADDRESS,
              ..super::android_base::opts()
          },
      }
@@ -34,7 +33,7 @@ index 55956f3bad..7b224b697f 100644
 @@ -1,4 +1,4 @@
 -use crate::spec::{LinkerFlavor, Target, TargetOptions};
 +use crate::spec::{LinkerFlavor, SanitizerSet, Target, TargetOptions};
- 
+
  // This target if is for the baseline of the Android v7a ABI
  // in thumb mode. It's named armv7-* instead of thumbv7-*
 @@ -20,6 +20,7 @@ pub fn target() -> Target {
@@ -52,7 +51,7 @@ index 640f9e42f4..610adaa5ac 100644
 @@ -1,4 +1,4 @@
 -use crate::spec::{StackProbeType, Target};
 +use crate::spec::{SanitizerSet, StackProbeType, Target, TargetOptions};
- 
+
  // See https://developer.android.com/ndk/guides/abis.html#x86
  // for target ABI requirements.
 @@ -21,6 +21,9 @@ pub fn target() -> Target {
@@ -73,7 +72,7 @@ index 9065283b73..8dd5443fae 100644
 @@ -1,4 +1,4 @@
 -use crate::spec::{LinkerFlavor, StackProbeType, Target};
 +use crate::spec::{LinkerFlavor, SanitizerSet, StackProbeType, Target, TargetOptions};
- 
+
  pub fn target() -> Target {
      let mut base = super::android_base::opts();
 @@ -16,6 +16,9 @@ pub fn target() -> Target {
@@ -87,6 +86,6 @@ index 9065283b73..8dd5443fae 100644
 +        },
      }
  }
--- 
-2.34.0.rc2.393.gf8c9666880-goog
+--
+2.34.1.575.g55b058a8bb-goog
 
