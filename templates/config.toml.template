@@ -33,6 +33,7 @@ sysconfdir = "etc"
 channel = "dev"
 remap-debuginfo = true
 deny-warnings = false
+llvm-libunwind = "in-tree"
 
 $host_configs
 

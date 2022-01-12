@@ -135,6 +135,7 @@ def device_config(target: str, linker_flags: str) -> str:
         return Template(template_file.read()).substitute(
             target=target,
             cc=cc_wrapper_name,
+            cxx=cc_wrapper_name,
             linker=linker_wrapper_name,
             ar=AR_PATH)
 

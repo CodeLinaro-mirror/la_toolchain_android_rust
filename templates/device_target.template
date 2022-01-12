@@ -1,4 +1,5 @@
 [target.$target]
 cc = "$cc"
+cxx = "$cxx"
 linker = "$linker"
 ar = "$ar"
