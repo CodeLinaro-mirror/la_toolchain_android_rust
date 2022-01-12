@@ -1,2 +1,2 @@
 #!/bin/bash
-$real_cxx $$* --target=$target -stdlib=libc++ $macosx_flags $linker_flags
+$real_cxx $$* --target=$target --rtlib=compiler-rt -stdlib=libc++ $macosx_flags $linker_flags
