@@ -66,10 +66,12 @@ def instantiate_template_file(template_path: Path, output_path: Path, make_exec:
         output_path.chmod(output_path.stat().st_mode | stat.S_IEXEC)
 
 
-def host_config(target: str, macosx_flags: str, linker_flags: str) -> str:
+def host_config(target: str, sysroot: str, linker_flags: str) -> str:
     cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
     cxx_wrapper_name    = OUT_PATH_WRAPPERS / f"clang++-{target}"
     linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+
+    macosx_version = MACOSX_VERSION_FLAG if build_platform.is_darwin() else ""
 
     if target in TARGET_SPECIFIC_LINKER_FLAGS:
         linker_flags += " " + TARGET_SPECIFIC_LINKER_FLAGS[target]
@@ -79,14 +81,16 @@ def host_config(target: str, macosx_flags: str, linker_flags: str) -> str:
         cc_wrapper_name,
         real_cc=CC_PATH,
         target=target,
-        macosx_flags=macosx_flags)
+        macosx_flags=macosx_version,
+        sysroot=sysroot)
 
     instantiate_template_exec(
         HOST_CXX_WRAPPER_TEMPLATE,
         cxx_wrapper_name,
         real_cxx=CXX_PATH,
         target=target,
-        macosx_flags=macosx_flags,
+        macosx_flags=macosx_version,
+        sysroot=sysroot,
         cxxstd=CXXSTD_PATH)
 
     instantiate_template_exec(
@@ -94,7 +98,8 @@ def host_config(target: str, macosx_flags: str, linker_flags: str) -> str:
         linker_wrapper_name,
         real_cxx=CXX_PATH,
         target=target,
-        macosx_flags=macosx_flags,
+        macosx_flags=macosx_version,
+        sysroot=sysroot,
         linker_flags=linker_flags)
 
     with open(HOST_TARGET_TEMPLATE, "r") as template_file:
@@ -147,35 +152,38 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     # Compute compiler/linker flags
     #
 
-    macosx_flags:       str = ""
-    lto_flag:           str = f"-flto={args.lto}" if args.lto != "none" else ""
-    host_ld_selector:   str = "-fuse-ld=lld" if build_platform.is_linux() else ""
-    host_bin_search:    str = ("-B" + GCC_TOOLCHAIN_PATH.as_posix()) if build_platform.is_linux() else ""
-    host_llvm_libpath:  str = f"-L{LLVM_CXX_RUNTIME_PATH.as_posix()}"
-    host_rpath_runtime: str = f"-Wl,-rpath,{build_platform.rpath_origin()}/../lib64"
+    host_sysroot: str = ""
+    lto_flag:     str = f"-flto={args.lto}" if args.lto != "none" else ""
 
-    if build_platform.is_darwin():
+    host_linker_flags: list[str] = [
+        lto_flag,
+        f"-Wl,-rpath,{build_platform.rpath_origin()}/../lib64",
+        f"-L{LLVM_CXX_RUNTIME_PATH.as_posix()}"
+    ]
+
+    if build_platform.is_linux():
+        host_sysroot = GCC_SYSROOT_PATH
+        host_linker_flags += [
+            "-fuse-ld=lld",
+            f"-B{GCC_LIBGCC_PATH}",
+            f"-L{GCC_LIBGCC_PATH}",
+            f"-L{GCC_LIB_PATH}"
+        ]
+
+    elif build_platform.is_darwin():
         # Apple removed the normal sysroot at / on Mojave+, so we need
         # to go hunt for it on OSX
         # On pre-Mojave, this command will output the empty string.
         output = subprocess.check_output(
             ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
-        macosx_flags = (
-            MACOSX_VERSION_FLAG +
-            " --sysroot " + output.rstrip().decode("utf-8"))
+        host_sysroot = output.rstrip().decode("utf-8")
 
-    host_linker_flags = " ".join([
-        host_ld_selector,
-        LINKER_PIC_FLAG,
-        lto_flag,
-        host_bin_search,
-        host_llvm_libpath,
-        host_rpath_runtime])
 
     # The `$` character should be escaped in the wrappers but not in the
     # config.toml llvm::ldflags value (it causes Rust's boostrap system to
     # complain and CMake does its own escaping).
-    host_linker_flags_escaped = host_linker_flags.replace("$", "\\$")
+    host_linker_flags_str         = " ".join(host_linker_flags)
+    host_linker_flags_str_escaped = host_linker_flags_str.replace("$", "\\$")
 
     device_linker_flags = LINKER_PIC_FLAG
 
@@ -240,7 +248,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     #
 
     host_configs = "\n".join(
-        [host_config(target, macosx_flags, host_linker_flags_escaped) for target in HOST_TARGETS])
+        [host_config(target, host_sysroot, host_linker_flags_str_escaped) for target in HOST_TARGETS])
     device_configs = "\n".join(
         [device_config(target, device_linker_flags) for target in DEVICE_TARGETS])
 
@@ -252,7 +260,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
         OUT_PATH_RUST_SOURCE / "config.toml",
         llvm_cflags=lto_flag,
         llvm_cxxflags=lto_flag,
-        llvm_ldflags=host_linker_flags,
+        llvm_ldflags=host_linker_flags_str,
         all_targets=all_targets,
         cargo=CARGO_PATH,
         rustc=RUSTC_PATH,

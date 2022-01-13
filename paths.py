@@ -22,6 +22,7 @@ RUST_VERSION_STAGE0: str = '1.57.0'
 CLANG_REVISION:      str = 'r437112b'
 CLANG_NAME:          str = 'clang-{0}'.format(CLANG_REVISION)
 GLIBC_VERSION:       str = '2.17-4.8'
+GLIBC_SUBVERSION:    str = '4.8.3'
 
 TOOLCHAIN_PATH:   Path = Path(__file__).parent.resolve()
 WORKSPACE_PATH:   Path = (TOOLCHAIN_PATH / '..' / '..').resolve()
@@ -52,7 +53,11 @@ RUST_PREBUILT_PATH:    Path = PREBUILT_PATH / 'rust'
 RUST_HOST_STAGE0_PATH: Path = RUST_PREBUILT_PATH / build_platform.prebuilt() / RUST_VERSION_STAGE0
 LLVM_PREBUILT_PATH:    Path = PREBUILT_PATH / 'clang' / 'host' / build_platform.prebuilt() / CLANG_NAME
 LLVM_CXX_RUNTIME_PATH: Path = LLVM_PREBUILT_PATH / 'lib64'
-GCC_TOOLCHAIN_PATH:    Path = PREBUILT_PATH / 'gcc' / build_platform.prebuilt() / 'host' / ('x86_64-linux-glibc' + GLIBC_VERSION)
+
+GCC_TOOLCHAIN_PATH: Path = PREBUILT_PATH / 'gcc' / build_platform.prebuilt() / 'host' / ('x86_64-linux-glibc' + GLIBC_VERSION)
+GCC_LIB_PATH:       Path = GCC_TOOLCHAIN_PATH / 'x86_64-linux' / 'lib64'
+GCC_LIBGCC_PATH:    Path = GCC_TOOLCHAIN_PATH / 'lib' / 'gcc' / 'x86_64-linux' / GLIBC_SUBVERSION
+GCC_SYSROOT_PATH:   Path = GCC_TOOLCHAIN_PATH / 'sysroot'
 
 PYTHON_PREBUILT_PATH:      Path = PREBUILT_PATH / 'python' / build_platform.prebuilt()
 CMAKE_PREBUILT_PATH:       Path = PREBUILT_PATH / 'cmake' / build_platform.prebuilt()
