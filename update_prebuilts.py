@@ -231,6 +231,7 @@ def update_symlink(targets: KeysView[str], version: str) -> None:
             # os.path.relpath() is used here because pathlib.Path.relative_to()
             # requires that one path be a subcomponent of the other.
             stable_bin_path.symlink_to(os.path.relpath(version_bin_path, stable_root_path))
+            RUST_PREBUILT_REPO.add(stable_bin_path)
 
 
 def update_soong(version: str) -> None:
