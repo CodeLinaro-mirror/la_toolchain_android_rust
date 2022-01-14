@@ -3,7 +3,8 @@
 ## Preparation (one-off)
 
 The Rust toolchain has its own branch manifest in AOSP, named `rust-toolchain`.
-We will checkout this branch in a new directory:
+The following commands will create a repo directory (e.g. `~/rust-toolchain`),
+initialize it with the rust-toolchain manifest, and synchronize the repository.
 
 ```shell
 $ export TOOLCHAIN=~/rust-toolchain
@@ -13,17 +14,20 @@ $ repo init -u https://android.googlesource.com/platform/manifest -b rust-toolch
 $ repo sync -j16
 ```
 
-In your Android repo (`aosp-master`), add the new prebuilts path:
+To create a remote reference from an AOSP repo's `prebuilts/rust` directory to the
+rust-toolchain's version run the following command in the AOSP tree's root:
 
 ```shell
-$ git -C prebuilts/rust remote add local $TOOLCHAIN/prebuilts/rust
+$ git -C prebuilts/rust remote add local-toolchain $TOOLCHAIN/prebuilts/rust
 ```
 
 ## Create new prebuilts
 
-We are now going to create a new prebuilt toolchain. This includes fetching the
-latest toolchain from upstream, building it locally to confirm our extra patches
-apply fine and finally uploading the source to Gerrit.
+The steps below are used to build a Rust toolchain for Android.  This includes
+fetching the latest toolchain from upstream, building it locally to confirm our
+extra patches apply, and uploading the source to Gerrit.
+
+It is best to start the process with a freshly-synchronized repository.
 
 ### Fetch latest upstream toolchain
 
@@ -92,48 +96,81 @@ use a "direct push" to skip gerrit's hooks. Look at the initial import
 [bug](http://b/137197907) for an example conversation about importing oversized
 changes.
 
+## Test Locally
+
+To test a locally built Rust toolchain you will first need to generate a commit
+containing the relevant files:
+
+```shell
+$ ./toolchain/android_rust/update_prebuilts.py <archive_path> <rust_version>
+```
+
+The `archive_path` will be `$TOOLCHAIN/dist/rust-dev.tar.gz` by default unless
+the `--build-name <name>` option was passed to `build.py`, in which case the
+archive will be named `rust-<name>.tar.gz`.
+
+Use the `--branch` argument to specify a name like
+`rust-update-prebuilts-<version>-local` to avoid conflicts with the branch names
+created with the artifacts from the build server.
+
+This command will generate CLs in the `prebuilts/rust` and `build/soong`
+directories.  Further changes to the files in `build/soong/rust` may be
+necessary if arguments to the compiler or crate layouts change during the
+update.  It is important to fetch the changes to `build/soong` along with the
+prebuilt update when performing local testing.
+
+Next, in an AOSP repository:
+
+```shell
+$ pushd prebuilts/rust
+$ git fetch local-toolchain
+$ git checkout local-toolchain/rust-update-prebuilts-<version_number>
+$ popd
+$ pushd build/soong
+$ git fetch local-toolchain
+$ git checkout local-toolchain/rust-update-prebuilts-<version_number>
+```
+
+To build all Rust sources in Android:
+
+```shell
+$ m rust
+```
+
+This step may trigger new warnings on existing source files.  If the compiler
+suggests a fix apply it.  Otherwise make the most reasonable looking change
+necessary to keep the compiler happy and rely on the original author to
+determine correctness during code review.
+
+Further testing may be performed by building an Android image and booting it.
+
 ## Push new prebuilts
 
 Wait for [android build](http://ab/aosp-rust-toolchain) to complete a green
 build including your changes. Find the build number of this build (it needs to
-have both darwin and linux targets built).
-
-Starting from `$TOOLCHAIN`, bring it up to date with `repo sync -d -j16` if
-needed. Then:
+have both darwin and linux targets built) and run the `update_prebuilts.py`
+script:
 
 ```shell
 $ ./toolchain/android_rust/update_prebuilts.py -i <issue_number> <build_id> <rust_version>
 ```
 
-This command will generate CLs in the `prebuilts/rust` and
-`toolchain/android_rust` directories.
-
-## Update references to toolchain version
-
-Next, you need to update the `RustDefaultVersion` variable in the
-`build/soong/rust/config/global.go` file.
-
-All of the CLs will be automatically tested in presubmit, but if you want to
-test locally first:
-
-*   To test the `rustc` build, re-run `DIST_DIR=$TOOLCHAIN/dist
-    ./toolchain/android_rust/build.py` from the `$TOOLCHAIN` directory with your
-    update staged.
-*   To test the sysroot build, `lunch` any target, then `m libstd`
-*   To test the Android tree, `lunch` any target, then `m crosvm`, go to
-    `external/rust` and run `mma`.
+Upload the new commits in `prebuilts/rust` and `build/soong` to Gerrit, making
+sure to include any necessary modifications that were discovered during local
+testing.  It is also possible to upload the changes from rust-toolchain's copy
+of `prebuilts/rust` and the changes to `build/soong` from an AOSP repo.
 
 ## Publish Compiler Prebuilt
 
-Now that we know the compiler is working, we need to tag it. This tag is not
-used by Android, but Chrome is using it to produce an MPM of our compiler
-releases for their work.
+Once the CL containing the new prebuilts has been merged it needs to be tagged.
+This tag is not used by Android, but Chrome is using it to produce an MPM of
+our compiler releases for their work.
 
 These commands do not have a review step like uploading a change, so be sure
 that you have landed (not just uploaded) the commits from the previous step.
 
 ```shell
-$ pushd prebuilts/rust
+$ cd prebuilts/rust
 $ git tag rustc-$RUST_VERSION
 $ git push aosp rustc-$RUST_VERSION
 ```
@@ -149,11 +186,10 @@ anymore. Go ahead and remove the old compiler to save space in your colleagues'
 checkouts:
 
 ```shell
-$ pushd prebuilts/rust
+$ cd prebuilts/rust
 $ repo start gc-rust-$OLD_RUST_VERSION
 $ git rm -rf {linux-x86,darwin-x86}/$OLD_RUST_VERSION
 $ git commit -m "Removing unused rustc-$OLD_RUST_VERSION"
-$ popd
 ```
 
 Once that change is landed, congratulations, you're done rolling the toolchain!
