@@ -234,10 +234,20 @@ def update_symlink(targets: KeysView[str], version: str) -> None:
             RUST_PREBUILT_REPO.add(stable_bin_path)
 
 
-def update_soong(version: str) -> None:
+def update_prebuilts(prebuilt_ident: Union[int, Path], branch_name: str, version: str, overwrite: bool, issue: Optional[int]) -> None:
+    artifact_path_map, manifest_path = prepare_prebuilt_artifact(prebuilt_ident)
+    RUST_PREBUILT_REPO.create_or_checkout(branch_name, overwrite)
+    unpack_prebuilt_artifacts(artifact_path_map, manifest_path, version, overwrite)
+    update_symlink(artifact_path_map.keys(), version)
+    commit_message = make_commit_message(version, prebuilt_ident, issue)
+    RUST_PREBUILT_REPO.amend_or_commit(commit_message)
+
+
+def update_soong(branch_name: str, version: str, overwrite: bool) -> None:
     """Update the Rust version number in Soong"""
 
     print("Updating Soong's RustDefaultVersion")
+    SOONG_REPO.create_or_checkout(branch_name, overwrite)
     SOONG_GLOBAL_DEF_PATH: Path = SOONG_PATH / "rust" / "config" / "global.go"
     with open(SOONG_GLOBAL_DEF_PATH, "r+") as f:
         replace_file_contents(f, re.sub(VERSION_PATTERN, version, f.read()))
@@ -252,13 +262,8 @@ def main() -> None:
     branch_name: str = args.branch or make_branch_name(args.version, isinstance(args.prebuilt_ident, Path))
 
     print()
-    artifact_path_map, manifest_path = prepare_prebuilt_artifact(args.prebuilt_ident)
-    RUST_PREBUILT_REPO.create_or_checkout(branch_name, args.overwrite)
-    unpack_prebuilt_artifacts(artifact_path_map, manifest_path, args.version, args.overwrite)
-    update_symlink(artifact_path_map.keys(), args.version)
-    commit_message = make_commit_message(args.version, args.prebuilt_ident, args.issue)
-    RUST_PREBUILT_REPO.amend_or_commit(commit_message)
-    update_soong(args.version)
+    update_prebuilts(args.prebuilt_ident, branch_name, args.version, args.overwrite, args.issue)
+    update_soong(branch_name, args.version, args.overwrite)
     print("Done")
 
     sys.exit(0)
