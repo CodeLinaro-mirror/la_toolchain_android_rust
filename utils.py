@@ -92,10 +92,11 @@ class GitRepo:
     def __init__(self, repo_path: Path) -> None:
         self.path = repo_path
 
-    def add(self, pattern: Union[str, Path]='.') -> None:
+    def add(self, *patterns: Union[str, Path]) -> None:
+        pattern = " ".join(patterns)
         run_quiet_and_exit_on_failure(
             f"git add {pattern}",
-            "Failed to add files matching pattern '%s' to Git repo %s" %
+            "Failed to add files matching pattern(s) '%s' to Git repo %s" %
                 (pattern, self.path),
             cwd=self.path)
 
@@ -169,10 +170,11 @@ class GitRepo:
             exit(-1)
 
 
-    def rm(self, pattern: Union[str, Path]) -> None:
+    def rm(self, *patterns: Union[str, Path]) -> None:
+        pattern = " ".join(patterns)
         run_quiet_and_exit_on_failure(
             f"git rm -fr {pattern}",
-            "Failed to remove files matching pattern '%s' from Git repo %s" %
+            "Failed to remove files matching pattern(s) '%s' from Git repo %s" %
                 (pattern, self.path),
             cwd=self.path)
 

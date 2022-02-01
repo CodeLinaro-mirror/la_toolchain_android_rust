@@ -84,7 +84,7 @@ def setup_files(input_dir: Path, output_dir: Path, patches_dir: Path, no_patch_a
 
     # Calculate the name of the temporary directory and remove any stale files
     # if they exist.
-    tmp_output_dir = output_dir.parent / (output_dir.name + '.tmp')
+    tmp_output_dir = output_dir.parent / (output_dir.name + ".tmp")
     if tmp_output_dir.exists():
         shutil.rmtree(tmp_output_dir)
 
@@ -101,7 +101,7 @@ def setup_files(input_dir: Path, output_dir: Path, patches_dir: Path, no_patch_a
     #
     # Note: Darwin builds don't copy symlinks with -r.  Use -R instead.
     command_template = f"cp -Rf %s {input_dir} {tmp_output_dir}"
-    reflink          = '--reflink=auto' if build_platform.is_linux() else '-c'
+    reflink          = "--reflink=auto" if build_platform.is_linux() else "-c"
     try:
         run_quiet(command_template % reflink, check=True)
     except subprocess.CalledProcessError:
@@ -110,19 +110,22 @@ def setup_files(input_dir: Path, output_dir: Path, patches_dir: Path, no_patch_a
             command_template % "",
             f"Failed to copy source to temporary output path {tmp_output_dir}")
 
+    # Remove the guard Android.mk file from the copy of the rustc source
+    (tmp_output_dir / "Android.mk").unlink()
+
     # Patch source tree
     apply_patches(tmp_output_dir, patches_dir, no_patch_abort=no_patch_abort)
 
     # Copy tmp_output_dir to output_dir if they are different.  This avoids
     # invalidating prior build outputs.
     if not output_dir.exists():
-        print('Re-naming temporary output directory')
+        print("Re-naming temporary output directory")
         tmp_output_dir.rename(output_dir)
     else:
-        print('Synchronizing temporary directory with existing output directory')
+        print("Synchronizing temporary directory with existing output directory")
         # Without a trailing '/' in $SRC, rsync copies $SRC to
         # $DST/BASENAME($SRC) instead of $DST.
-        tmp_output_dir_w_trailing_slash = str(tmp_output_dir) + '/'
+        tmp_output_dir_w_trailing_slash = str(tmp_output_dir) + "/"
 
         # rsync to update only changed files.  Use '-c' to use checksums to find
         # if files have changed instead of only modification time and size -

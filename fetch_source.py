@@ -22,7 +22,7 @@ import utils
 
 BRANCH_NAME_TEMPLATE: str = "rust-update-source-%s"
 
-COMMAND_FETCH: str = "curl --proto '=https' --tlsv1.2 -f %s | tar xz --strip-components=1"
+COMMAND_FETCH_AND_EXTRACT: str = "curl --proto '=https' --tlsv1.2 -f %s | tar xz --strip-components=1"
 
 COMMIT_MESSAGE: str = "Importing rustc-%s"
 
@@ -93,14 +93,16 @@ def parse_args() -> argparse.Namespace:
 
 def clean_repository() -> None:
     print("Deleting old files")
-    RUST_REPO.rm('*')
+    # Save the blank Android.mk file to prevent Soong from digging into the
+    # rustc directory.
+    RUST_REPO.rm(*[p.name for p in RUST_REPO.path.glob("*") if p.name not in ["Android.mk", ".git"]])
 
 
 def fetch_and_extract_archive(build_type: str, rust_version: str) -> None:
     archive_url = construct_archive_url(build_type, rust_version)
     print("Fetching archive %s\n" % archive_url)
     utils.run_and_exit_on_failure(
-        COMMAND_FETCH % archive_url,
+        COMMAND_FETCH_AND_EXTRACT % archive_url,
         "Error fetching source for Rust version %s" % rust_version,
         cwd=RUST_SOURCE_PATH,
         shell=True)
