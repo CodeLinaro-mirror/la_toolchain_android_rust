@@ -162,7 +162,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     ]
 
     if build_platform.is_linux():
-        host_sysroot = GCC_SYSROOT_PATH
+        host_sysroot = GCC_SYSROOT_PATH.as_posix()
         host_linker_flags += [
             "-fuse-ld=lld",
             f"-B{GCC_LIBGCC_PATH}",

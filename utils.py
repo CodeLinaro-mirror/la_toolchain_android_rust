@@ -22,7 +22,7 @@ import shlex
 import shutil
 import sys
 import subprocess
-from typing import Any, TextIO, Union
+from typing import Any, TextIO, Union, cast
 
 
 GIT_REFERENCE_BRANCH = "aosp/master"
@@ -80,7 +80,7 @@ def run_quiet_and_exit_on_failure(command: Union[str, list[Any]], error_message:
 
 
 def run_quiet(command: Union[str, list[Any]], *args: Any, **kwargs: Any) -> int:
-    return subprocess.run(prepare_command(command), *args, **(kwargs | SUBPROCESS_RUN_QUIET_DEFAULTS)).returncode
+    return subprocess.run(prepare_command(command), *args, **cast(Any,(kwargs | SUBPROCESS_RUN_QUIET_DEFAULTS))).returncode
 
 #
 # Git
@@ -93,7 +93,7 @@ class GitRepo:
         self.path = repo_path
 
     def add(self, *patterns: Union[str, Path]) -> None:
-        pattern = " ".join(patterns)
+        pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
             f"git add {pattern}",
             "Failed to add files matching pattern(s) '%s' to Git repo %s" %
@@ -171,7 +171,7 @@ class GitRepo:
 
 
     def rm(self, *patterns: Union[str, Path]) -> None:
-        pattern = " ".join(patterns)
+        pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
             f"git rm -fr {pattern}",
             "Failed to remove files matching pattern(s) '%s' from Git repo %s" %
