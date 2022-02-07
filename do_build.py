@@ -66,19 +66,24 @@ LLVM_BUILD_PATHS_OF_INTEREST: list[str] = [
     "llvm.spec"
 ]
 
-
 def parse_args() -> argparse.Namespace:
     """Parses arguments and returns the parsed structure."""
     parser = argparse.ArgumentParser("Build the Rust Toolchain")
-    parser.add_argument("--build-name", type=str, default="dev",
+    parser.add_argument("--build-name", "-b", default="dev",
                         help="Release name for the dist result")
-    parser.add_argument("--lto", default="none",
-                        choices=["none", "thin", "full"],
-                        help="Type of LTO to perform. Valid LTO \
-                        types: none, thin, full")
+    parser.add_argument("--lto", "-l", default="none", choices=["none", "thin", "full"],
+                        help="Type of LTO to perform. Valid LTO types: none, thin, full")
     parser.add_argument("--no-patch-abort",
-                        help="Don't abort on patch failure. \
-                        Useful for local development.")
+                        help="Don't abort on patch failure. Useful for local development.")
+
+    pgo_group = parser.add_mutually_exclusive_group()
+    pgo_group.add_argument("--profile-generate", type=Path, nargs="?", const=OUT_PATH_PROFILES,
+                           help="Instrument the compiler and store profiles in the specified \
+                                 directory")
+    pgo_group.add_argument("--profile-use", type=Path, nargs="?", const=OUT_PATH_PROFILES,
+                           help="Use the rustc.profdata and llvm.profdata files in the \
+                                 provided directory to optimize the compiler")
+
     return parser.parse_args()
 
 

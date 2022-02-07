@@ -152,8 +152,24 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     # Compute compiler/linker flags
     #
 
-    host_sysroot: str = ""
-    lto_flag:     str = f"-flto={args.lto}" if args.lto != "none" else ""
+    host_sysroot:     str = ""
+    lto_flag:         str = f"-flto={args.lto}" if args.lto != "none" else ""
+    llvm_flags:       str = lto_flag
+    rustc_pgo_config: str = ""
+
+    if args.profile_generate != None:
+        llvm_flags       += f" -fprofile-generate={args.profile_generate}/llvm -Xclang -mllvm -Xclang -vp-counters-per-site=2"
+        rustc_pgo_config  = f"profile-generate = \"{args.profile_generate}/llvm\""
+    elif args.profile_use != None:
+        llvm_flags       += f" -fprofile-use={args.profile_use}/llvm.profdata"
+        rustc_pgo_config  = f"profile-use = \"{args.profile_use}/rustc.profdata\""
+
+        if not (args.profile_use / "llvm.profdata").exists():
+            print(f"Required file missing: {args.profile_use}/llvm.profdata")
+            exit(-1)
+        elif not (args.profile_use / "rustc.profdata").exists():
+            print(f"Required file missing: {args.profile_use}/rustc.profdata")
+            exit(-1)
 
     host_linker_flags: list[str] = [
         lto_flag,
@@ -177,7 +193,6 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
         output = subprocess.check_output(
             ["xcrun", "--sdk", "macosx", "--show-sdk-path"])
         host_sysroot = output.rstrip().decode("utf-8")
-
 
     # The `$` character should be escaped in the wrappers but not in the
     # config.toml llvm::ldflags value (it causes Rust's boostrap system to
@@ -258,12 +273,13 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     instantiate_template_file(
         CONFIG_TOML_TEMPLATE,
         OUT_PATH_RUST_SOURCE / "config.toml",
-        llvm_cflags=lto_flag,
-        llvm_cxxflags=lto_flag,
+        llvm_cflags=llvm_flags,
+        llvm_cxxflags=llvm_flags,
         llvm_ldflags=host_linker_flags_str,
         all_targets=all_targets,
         cargo=CARGO_PATH,
         rustc=RUSTC_PATH,
         python=PYTHON_PATH,
+        pgo_config=rustc_pgo_config,
         host_configs=host_configs,
         device_configs=device_configs)

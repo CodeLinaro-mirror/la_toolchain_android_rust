@@ -4,6 +4,7 @@ changelog-seen = 2
 ninja = true
 targets = "AArch64;ARM;X86"
 experimental-targets = ""
+link-shared = true
 cflags = "$llvm_cflags"
 cxxflags = "$llvm_cxxflags"
 ldflags = "$llvm_ldflags"
@@ -34,6 +35,7 @@ channel = "dev"
 remap-debuginfo = true
 deny-warnings = false
 llvm-libunwind = "in-tree"
+$pgo_config
 
 $host_configs
 
