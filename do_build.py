@@ -37,6 +37,7 @@ STDLIB_SOURCES = [
         "library/core",
         "library/panic_abort",
         "library/panic_unwind",
+        "library/portable-simd",
         "library/proc_macro",
         "library/profiler_builtins",
         "library/std",
@@ -141,7 +142,7 @@ def main() -> None:
     #
 
     result = subprocess.run(
-        [PYTHON_PATH, OUT_PATH_RUST_SOURCE / "x.py", "--stage", "3", "install"],
+        [PYTHON_PATH, OUT_PATH_RUST_SOURCE / "x.py", "--stage", "2", "install"],
         cwd=OUT_PATH_RUST_SOURCE, env=env)
 
     if result.returncode != 0:

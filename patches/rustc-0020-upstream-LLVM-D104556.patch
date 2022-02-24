@@ -171,10 +171,11 @@ diff --git a/src/llvm-project/llvm/lib/ProfileData/InstrProfReader.cpp b/src/llv
 index a0460062f3..d7b8844ff6 100644
 --- a/src/llvm-project/llvm/lib/ProfileData/InstrProfReader.cpp
 +++ b/src/llvm-project/llvm/lib/ProfileData/InstrProfReader.cpp
-@@ -437,7 +437,15 @@ Error RawInstrProfReader<IntPtrT>::readRawCounts(
-   // may itself be corrupt.
+@@ -443,7 +443,15 @@ Error RawInstrProfReader<IntPtrT>::readRawCounts(
+   // may itself be corrupt.                                                                 
    if (MaxNumCounters < 0 || NumCounters > (uint32_t)MaxNumCounters)
-     return error(instrprof_error::malformed);
+     return error(instrprof_error::malformed,
+                  "counter pointer is out of bounds");
 +
 +  // We need to compute the in-buffer counter offset from the in-memory address
 +  // distance. The initial CountersDelta is the in-memory address difference
@@ -184,9 +185,8 @@ index a0460062f3..d7b8844ff6 100644
 +  // CountersDelta decreases as we advance to the next data record.
    ptrdiff_t CounterOffset = getCounterOffset(CounterPtr);
 +  CountersDelta -= sizeof(*Data);
-   if (CounterOffset < 0 || CounterOffset > MaxNumCounters ||
-       ((uint32_t)CounterOffset + NumCounters) > (uint32_t)MaxNumCounters)
-     return error(instrprof_error::malformed);
+   if (CounterOffset < 0)
+     return error(
 diff --git a/src/llvm-project/llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp b/src/llvm-project/llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp
 index 0d257bb6bd..6ec7fde12c 100644
 --- a/src/llvm-project/llvm/lib/Transforms/Instrumentation/InstrProfiling.cpp
