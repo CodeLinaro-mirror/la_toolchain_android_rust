@@ -58,7 +58,7 @@ index 0f01a78c8c..012ff4da89 100644
 @@ -12,6 +13,7 @@ pub fn opts() -> TargetOptions {
      base.dwarf_version = Some(2);
      base.position_independent_executables = true;
-     base.has_elf_tls = false;
+     base.has_thread_local = false;
 +    base.supported_sanitizers = SanitizerSet::ADDRESS;
      // This is for backward compatibility, see https://github.com/rust-lang/rust/issues/49867
      // for context. (At that time, there was no `-C force-unwind-tables`, so the only solution
