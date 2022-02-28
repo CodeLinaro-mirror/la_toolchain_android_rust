@@ -69,7 +69,8 @@ def run_and_exit_on_failure(command: Union[str, list[Any]], error_message: str, 
     command = prepare_command(command) if not kwargs.get("shell") else command
     result  = subprocess.run(command, *args, **kwargs)
     if result.returncode != 0:
-        sys.exit(error_message)
+        print(error_message)
+        sys.exit(result.returncode)
 
     return result
 
