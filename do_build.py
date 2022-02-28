@@ -85,7 +85,13 @@ def parse_args() -> argparse.Namespace:
                            help="Use the rustc.profdata and llvm.profdata files in the \
                                  provided directory to optimize the compiler")
 
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if build_platform.is_darwin() and (args.profile_generate != None or args.profile_use != None):
+        print("PGO is not supported on the Darwin platform")
+        exit(-1)
+
+    return args
 
 
 def main() -> None:

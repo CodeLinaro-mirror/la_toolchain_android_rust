@@ -202,6 +202,9 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
 
     device_linker_flags = LINKER_PIC_FLAG
 
+    # Shared linking of LLVM is not supported on Darwin.
+    llvm_link_shared = "true" if not build_platform.is_darwin() else "false"
+
     #
     # Update environment variables
     #
@@ -273,6 +276,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     instantiate_template_file(
         CONFIG_TOML_TEMPLATE,
         OUT_PATH_RUST_SOURCE / "config.toml",
+        llvm_link_shared=llvm_link_shared,
         llvm_cflags=llvm_flags,
         llvm_cxxflags=llvm_flags,
         llvm_ldflags=host_linker_flags_str,
