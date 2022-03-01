@@ -69,8 +69,7 @@ def run_and_exit_on_failure(command: Union[str, list[Any]], error_message: str, 
     command = prepare_command(command) if not kwargs.get("shell") else command
     result  = subprocess.run(command, *args, **kwargs)
     if result.returncode != 0:
-        print(error_message)
-        sys.exit(result.returncode)
+        sys.exit(error_message)
 
     return result
 
@@ -125,8 +124,7 @@ class GitRepo:
     def branch_target(self, branch_name: str = "HEAD") -> str:
         return run_and_exit_on_failure(
             self.COMMAND_GIT_BRANCH_TEST % branch_name,
-            "Failed to get target hash for branch '%s' of Git repo %s" %
-                (branch_name, self.path),
+            f"Failed to get target hash for branch '{branch_name}' of Git repo {self.path}",
             cwd=self.path,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL).stdout.rstrip()
@@ -134,26 +132,24 @@ class GitRepo:
     def checkout(self, branch_name: str) -> None:
         run_quiet_and_exit_on_failure(
             f"git checkout {branch_name}",
-            "Failed to checkout branch '%s' for Git repo %s" %
-                (branch_name, self.path),
+            f"Failed to checkout branch '{branch_name}' for Git repo {self.path}",
             cwd=self.path)
 
     def commit(self, message: str) -> None:
         run_quiet_and_exit_on_failure(
             f"git commit --no-verify -m '{message}'",
-            "Failed to create commit for Git repo %s" % self.path,
+            f"Failed to create commit for Git repo {self.path}",
             cwd=self.path)
 
     def create_or_checkout(self, branch_name: str, overwrite: bool) -> bool:
         """Create or checkout a branch, returning true if a new branch was created"""
         if self.branch_exists(branch_name):
             if overwrite:
-                print("Checking out branch %s" % branch_name)
+                print(f"Checking out branch {branch_name}")
                 self.checkout(branch_name)
                 return False
             else:
-                print("Branch %s already exists and the 'overwrite' option was not set" % branch_name)
-                exit(-1)
+                sys.exit(f"Branch {branch_name} already exists and the 'overwrite' option was not set")
         else:
             print("Creating branch %s" % branch_name)
             repo_start(self.path, branch_name)
@@ -167,16 +163,14 @@ class GitRepo:
         elif retcode == 1:
             return True
         else:
-            "Failed to compute diff for Git repo %s" % self.path
-            exit(-1)
+            sys.exit("Failed to compute diff for Git repo {self.path}")
 
 
     def rm(self, *patterns: Union[str, Path]) -> None:
         pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
             f"git rm -fr {pattern}",
-            "Failed to remove files matching pattern(s) '%s' from Git repo %s" %
-                (pattern, self.path),
+            f"Failed to remove files matching pattern(s) '{pattern}' from Git repo {self.path}",
             cwd=self.path)
 
 #
@@ -186,7 +180,7 @@ class GitRepo:
 def repo_start(path: Path, branch_name: str) -> None:
     run_quiet_and_exit_on_failure(
         f"repo start {branch_name}",
-        "Failed to 'repo init' branch '%s' for Git repo %s" % (path, branch_name),
+        f"Failed to 'repo init' branch '{path}' for Git repo {branch_name}",
         cwd=path)
 
 #

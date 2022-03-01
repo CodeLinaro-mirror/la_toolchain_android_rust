@@ -31,5 +31,6 @@ def get_host_tag():
 python_bin = os.path.join(THIS_DIR, "..", "..", "prebuilts", "python", get_host_tag(), 'bin', 'python3')
 python_bin = os.path.abspath(python_bin)
 
-subprocess.call(
-        [python_bin, os.path.join(THIS_DIR, SCRIPT_NAME)] + sys.argv[1:])
+sys.exit(
+    subprocess.call(
+        [python_bin, os.path.join(THIS_DIR, SCRIPT_NAME)] + sys.argv[1:]))

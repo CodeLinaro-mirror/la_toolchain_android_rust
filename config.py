@@ -19,6 +19,7 @@ from pathlib import Path
 import subprocess
 import stat
 from string import Template
+import sys
 from typing import Any
 
 import build_platform
@@ -165,11 +166,9 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
         rustc_pgo_config  = f"profile-use = \"{args.profile_use}/rustc.profdata\""
 
         if not (args.profile_use / "llvm.profdata").exists():
-            print(f"Required file missing: {args.profile_use}/llvm.profdata")
-            exit(-1)
+            sys.exit(f"Required file missing: {args.profile_use}/llvm.profdata")
         elif not (args.profile_use / "rustc.profdata").exists():
-            print(f"Required file missing: {args.profile_use}/rustc.profdata")
-            exit(-1)
+            sys.exit(f"Required file missing: {args.profile_use}/rustc.profdata")
 
     host_linker_flags: list[str] = [
         lto_flag,

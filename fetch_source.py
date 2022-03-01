@@ -123,8 +123,6 @@ def main() -> None:
     RUST_REPO.amend_or_commit(make_commit_message(rust_version, args.issue))
     print("Done")
 
-    exit(0)
-
 
 if __name__ == '__main__':
     main()

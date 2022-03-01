@@ -88,8 +88,7 @@ def parse_args() -> argparse.Namespace:
     args = parser.parse_args()
 
     if build_platform.is_darwin() and (args.profile_generate != None or args.profile_use != None):
-        print("PGO is not supported on the Darwin platform")
-        exit(-1)
+        sys.exit("PGO is not supported on the Darwin platform")
 
     return args
 

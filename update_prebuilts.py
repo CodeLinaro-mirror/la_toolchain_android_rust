@@ -196,8 +196,7 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
                 # Empty out the existing directory so we can overwrite the contents
                 RUST_PREBUILT_REPO.rm(target_and_version_path / '*')
             else:
-                print(f"Directory {target_and_version_path} already exists and the 'overwrite' option was not set")
-                exit(-1)
+                sys.exit(f"Directory {target_and_version_path} already exists and the 'overwrite' option was not set")
         else:
             target_and_version_path.mkdir()
 
@@ -265,8 +264,6 @@ def main() -> None:
     update_prebuilts(args.prebuilt_ident, branch_name, args.version, args.overwrite, args.issue)
     update_soong(branch_name, args.version, args.overwrite)
     print("Done")
-
-    sys.exit(0)
 
 
 if __name__ == "__main__":

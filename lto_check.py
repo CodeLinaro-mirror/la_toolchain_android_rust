@@ -32,8 +32,6 @@ def main() -> None:
     if not is_llvm_ir_file(file_path):
       print(file_path.relative_to(OUT_PATH).as_posix())
 
-  exit(0)
-
 
 if __name__ == '__main__':
     main()

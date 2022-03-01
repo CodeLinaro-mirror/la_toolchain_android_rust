@@ -33,9 +33,7 @@ def apply_patches(code_dir: Path, patch_dir: Path, no_patch_abort: bool = False)
     # We will overwrite the log file if it already existed.
     with OUT_PATH_PATCHS_LOG.open("w") as f:
         for idx, filepath in enumerate(patch_list):
-            print("\33[2K\rApplying patch ({cur:>{width}}/{total}): {name}".format(
-                    cur=(idx + 1), width=count_padding, total=len(patch_list), name=filepath.name),
-                end="")
+            print(f"\33[2K\rApplying patch ({(idx + 1):>{count_padding}}/{len(patch_list)}): {filepath.name}", end="")
 
             command_list: list[str] = prepare_command(f"patch -p1 -N -r - -i {filepath}")
             # We collect the stdout and stderr output and then print it to the
