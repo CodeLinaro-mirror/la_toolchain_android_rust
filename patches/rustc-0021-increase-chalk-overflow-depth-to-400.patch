@@ -1,0 +1,26 @@
+From 696aa3fae5064a4020fdc33216a09c560828957a Mon Sep 17 00:00:00 2001
+From: Charisee <chiw@google.com>
+Date: Fri, 4 Mar 2022 23:22:07 +0000
+Subject: [PATCH] increase chalk overflow depth to 400
+
+Change-Id: I5dee0be9000a8d0847d0bb6a475ffde25e74ba48
+---
+ src/tools/rust-analyzer/crates/hir_ty/src/traits.rs | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/tools/rust-analyzer/crates/hir_ty/src/traits.rs b/src/tools/rust-analyzer/crates/hir_ty/src/traits.rs
+index bd280ba774..9a8d23189a 100644
+--- a/src/tools/rust-analyzer/crates/hir_ty/src/traits.rs
++++ b/src/tools/rust-analyzer/crates/hir_ty/src/traits.rs
+@@ -27,7 +27,7 @@ pub(crate) struct ChalkContext<'a> {
+ 
+ fn create_chalk_solver() -> chalk_recursive::RecursiveSolver<Interner> {
+     let overflow_depth =
+-        var("CHALK_OVERFLOW_DEPTH").ok().and_then(|s| s.parse().ok()).unwrap_or(300);
++        var("CHALK_OVERFLOW_DEPTH").ok().and_then(|s| s.parse().ok()).unwrap_or(400);
+     let max_size = var("CHALK_SOLVER_MAX_SIZE").ok().and_then(|s| s.parse().ok()).unwrap_or(150);
+     chalk_recursive::RecursiveSolver::new(overflow_depth, max_size, Some(Cache::new()))
+ }
+-- 
+2.35.1.616.g0bdcbb4464-goog
+
