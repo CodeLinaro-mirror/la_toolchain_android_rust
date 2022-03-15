@@ -27,7 +27,7 @@ diagnosing out possible issues. The *Stable Workflow* is when the toolchain
 developer is targetting the *Stable* version of the Rust toolchain for the
 purpose of providing prebuilts for other developers.
 
-## Set-Up
+## Section 1: Set-Up
 
 ### Initial Set-Up
 
@@ -53,7 +53,7 @@ the rust-toolchain's version run the following command in the AOSP tree's root:
 $ git -C prebuilts/rust remote add local-toolchain $TOOLCHAIN/prebuilts/rust
 ```
 
-## Beta Workflow
+## Section 2: Beta Workflow
 
 ### Step 1-B: Fetch latest upstream toolchain
 
@@ -72,19 +72,6 @@ fetching beta/nightly archives. Details are listed in the help output.
 
 ```shell
 $ ./toolchain/android_rust/build.py --lto thin
-```
-
-*Things that can go wrong* 1. If a patch failed to apply, first check if it was
-merged upstream. So far all the patches we have in `patches/` we are trying to
-upstream, so this is the most likely cause. If it has been, use `git` to create
-a commit removing it from the `patches/` directory, e.g.
-
-```
-pushd toolchain/android_rust
-repo start update-rustc-$RUST_VERSION
-git rm patches/rustc-000n-Already-merged.patch
-git commit -m "Remove Foo patch that has landed upstream"
-popd
 ```
 
 If the build seems to be going, this will take a while; switch to another task,
@@ -145,7 +132,7 @@ Further testing may be performed by building an Android image and booting it.
 
 ### Step 5-B: Boot(*m*)
 
-## Stable Workflow
+## Section 3: Stable Workflow
 
 ### Step 6-S: Fetch Source and Build Rust
 
@@ -165,18 +152,6 @@ This may take a while because updates to `rustc` can be hefty in size. Double
 check the response from the server to make sure the change went through.
 
 You'll need to get these changes +2'd and merged before you can proceed.
-
-*Things that can go wrong*: 1. Help, Gerrit won't take my update!
-
-First, try again. Sometimes Gerrit is just flaky and will take it on the second
-or third try.
-
-If that's still not working, you are likely hitting a size limitation (for
-example, because `rustc` updated it's LLVM revision, so the diff is bigger than
-usual). In this case, you will need to work with the build team to get them to
-use a "direct push" to skip gerrit's hooks. Look at the initial import
-[bug](http://b/137197907) for an example conversation about importing oversized
-changes.
 
 ### Step 8-S: Wait for builds
 
@@ -239,7 +214,68 @@ The new compiler will now be automatically made available to Chrome. (Actually
 rolling the version of the compiler they're using is up to them, you don't need
 to worry about that part.)
 
-## Notes
+## Section 4: How to Fix Things
+
+While updating the Rust toolchain there are various isses that can arise. Things
+can break, roadblocks can get in the way, and others might need to be brought
+in. In this section we describe the different types of issues that can occur,
+examples, and instruct on how to move past them.
+
+### The Rust build
+
+Things that can break during **Step 2-B**:
+
+-   Patch Application
+-   Directory Structure Change
+-   Binary Incompatibility
+-   Comp Failure
+-   New Crate (prebuilts/rustc/Android.bp)
+
+**Patch Application**
+
+If a patch failed to apply, first check if it was merged upstream. So far all
+the patches we have in `patches/` we are trying to upstream, so this is the most
+likely cause. If it has been, use `git` to create a commit removing it from the
+`patches/` directory, e.g.
+
+```
+pushd toolchain/android_rust
+repo start update-rustc-$RUST_VERSION
+git rm patches/rustc-000n-Already-merged.patch
+git commit -m "Remove Foo patch that has landed upstream"
+popd
+```
+
+### Android Rust build
+
+Things that can break during **Step 4-B**:
+
+-   Hermaticity breakage
+-   Build system breakage
+-   Android Source Warnings
+-   Misscompilation
+
+### Uploading to Gerrit
+
+Things that can break during **Step 7-S**:
+
+-   Geritt limitation
+
+**Geritt Limitation**
+
+Help, Gerrit won't take my update!
+
+First, try again. Sometimes Gerrit is just flaky and will take it on the second
+or third try.
+
+If that's still not working, you are likely hitting a size limitation (for
+example, because `rustc` updated it's LLVM revision, so the diff is bigger than
+usual). In this case, you will need to work with the build team to get them to
+use a "direct push" to skip gerrit's hooks. Look at the initial import
+[bug](http://b/137197907) for an example conversation about importing oversized
+changes.
+
+## Section 5: Notes
 
 ### Troubleshooting a Broken Sysroot Build
 
