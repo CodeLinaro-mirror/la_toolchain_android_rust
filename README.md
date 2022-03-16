@@ -27,9 +27,15 @@ diagnosing out possible issues. The *Stable Workflow* is when the toolchain
 developer is targetting the *Stable* version of the Rust toolchain for the
 purpose of providing prebuilts for other developers.
 
-## Section 1: Set-Up
+In [Section 1](#section-1-the-steps) we cleanly and concisely describe the steps
+for updating the Android Rust toolchain during the initial set-up, *Beta
+Workflow* and the *stable workflow*. In
+[Section 2](#section-2-how-to-fix-things) we provide more details on the types
+of things that can go wrong and provide some guidance on how to get past those.
 
-### Initial Set-Up
+## Section 1: The-Steps
+
+### Section 1.1: Set-up
 
 This bit only needs to be done once and needs to be done before following the
 *Beta* or *Stable Workflow*.
@@ -53,9 +59,9 @@ the rust-toolchain's version run the following command in the AOSP tree's root:
 $ git -C prebuilts/rust remote add local-toolchain $TOOLCHAIN/prebuilts/rust
 ```
 
-## Section 2: Beta Workflow
+### Section-1.2: Beta Workflow
 
-### Step 1-B: Fetch latest upstream toolchain
+#### Step 1-B: Fetch latest upstream toolchain
 
 It is best to start the process with a freshly-synchronized repository.
 
@@ -68,7 +74,7 @@ The `fetch_source.py` script has several more useful options, including support
 for overwriting existing branches, manually specifying the branch name, or
 fetching beta/nightly archives. Details are listed in the help output.
 
-### Step 2-B: Build locally
+#### Step 2-B: Build locally
 
 ```shell
 $ ./toolchain/android_rust/build.py --lto thin
@@ -80,7 +86,7 @@ get some coffee, etc.
 *Tips:* - Use the same branch name as you did for `rustc` if you want repo
 tooling to help you later. E.g. rust-update-source-1.59.0
 
-### Step 3-B: Update prebuilts
+#### Step 3-B: Update prebuilts
 
 To test a locally built Rust toolchain you will first need to generate a commit
 containing the relevant files:
@@ -115,7 +121,7 @@ $ git fetch local-toolchain
 $ git checkout local-toolchain/rust-update-prebuilts-<version_number>
 ```
 
-### Step 4-B: Test (*m rust*)
+#### Step 4-B: Test
 
 To build all Rust sources in Android:
 
@@ -130,15 +136,22 @@ determine correctness during code review.
 
 Further testing may be performed by building an Android image and booting it.
 
-### Step 5-B: Boot(*m*)
+#### Step 5-B: Boot
 
-## Section 3: Stable Workflow
+```shell
+Build new image (*m*).
+Flash, boot, and test new image.
+```
 
-### Step 6-S: Fetch Source and Build Rust
+TODO Chris/Stephen: Add instructions here
+
+## Section 1.3: Stable Workflow
+
+#### Step 6-S: Fetch Source and Build Rust
 
 Use steps 1-B and 2-B from the *Beta Workflow*, but remove the `-b` flag.
 
-### Step 7-S: Upload
+#### Step 7-S: Upload
 
 Place any changes to `toolchain/android_rust` and `toolchain/rustc` into a
 topic, and use `repo` to upload as you usually would:
@@ -153,18 +166,18 @@ check the response from the server to make sure the change went through.
 
 You'll need to get these changes +2'd and merged before you can proceed.
 
-### Step 8-S: Wait for builds
+#### Step 8-S: Wait for builds
 
 Wait for [android build](http://ab/aosp-rust-toolchain) to complete a green
 build including your changes.
 
 The next step (**9-S**) can be done concurrently.
 
-### Step 9-S: Testing Build
+#### Step 9-S: Testing Build
 
 Follow steps 3-B, 4-B, and 5-B in the *Beta workflow*.
 
-### Step 10-S: Update prebuilts
+#### Step 10-S: Update prebuilts
 
 Find the build number (found at **Step 8-S**) of this build (it needs to have
 both darwin and linux targets built) and run the update_prebuilts.py`script:
@@ -173,14 +186,14 @@ both darwin and linux targets built) and run the update_prebuilts.py`script:
 $ ./toolchain/android_rust/update_prebuilts.py -i <issue_number> <build_id> <rust_version>
 ```
 
-### Step 11-S: Upload to Gerrit
+#### Step 11-S: Upload to Gerrit
 
 Upload the new commits in `prebuilts/rust` and `build/soong` to Gerrit, making
 sure to include any necessary modifications that were discovered during local
 testing. It is also possible to upload the changes from rust-toolchain's copy of
 `prebuilts/rust` and the changes to `build/soong` from an AOSP repo.
 
-### Step 12-S: Remove previous prebuilts
+#### Step 12-S: Remove previous prebuilts
 
 Once all of these updates are landed, nobody is using the old compiler version
 anymore. Go ahead and remove the old compiler to save space in your colleagues'
@@ -195,7 +208,7 @@ $ git commit -m "Removing unused rustc-$OLD_RUST_VERSION"
 
 Once that change is landed, congratulations, you're done rolling the toolchain!
 
-### Step 13-S: Tagging (Publish Compiler Prebuilt)
+#### Step 13-S: Tagging (Publish Compiler Prebuilt)
 
 Once the CL containing the new prebuilts has been merged it needs to be tagged.
 This tag is not used by Android, but Chrome is using it to produce an MPM of our
@@ -214,14 +227,14 @@ The new compiler will now be automatically made available to Chrome. (Actually
 rolling the version of the compiler they're using is up to them, you don't need
 to worry about that part.)
 
-## Section 4: How to Fix Things
+## Section 2: How to Fix Things
 
 While updating the Rust toolchain there are various isses that can arise. Things
 can break, roadblocks can get in the way, and others might need to be brought
 in. In this section we describe the different types of issues that can occur,
 examples, and instruct on how to move past them.
 
-### The Rust build
+### Section 2.1: The Rust Build
 
 Things that can break during **Step 2-B**:
 
@@ -246,16 +259,18 @@ git commit -m "Remove Foo patch that has landed upstream"
 popd
 ```
 
-### Android Rust build
+### Section 2.2: Android Rust Build
 
 Things that can break during **Step 4-B**:
 
--   Hermaticity breakage
+-   Hermeticity breakage
 -   Build system breakage
 -   Android Source Warnings
--   Misscompilation
+-   Miscompilation
 
-### Uploading to Gerrit
+**Android Source Warnings**
+
+### Section 2.3: Uploading to Gerrit
 
 Things that can break during **Step 7-S**:
 
@@ -275,7 +290,7 @@ use a "direct push" to skip gerrit's hooks. Look at the initial import
 [bug](http://b/137197907) for an example conversation about importing oversized
 changes.
 
-## Section 5: Notes
+## Section 3: Notes
 
 ### Troubleshooting a Broken Sysroot Build
 
