@@ -82,7 +82,7 @@ def main() -> None:
   # Run 'm rust && m' for build target
   ENVSETUP_PATH = Path.cwd() / "build" / "envsetup.sh"
   retcode = subprocess.run(
-    f"source {ENVSETUP_PATH} && lunch {args.target} && " +
+    f". {ENVSETUP_PATH} && lunch {args.target} && " +
     f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} m rust && m",
     shell=True, stderr=subprocess.STDOUT)
 
