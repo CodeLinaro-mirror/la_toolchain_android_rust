@@ -28,7 +28,7 @@ import sys
 import build_platform
 import config
 from paths import *
-from utils import run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
+from utils import ResolvedPath, run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
 
 
 STDLIB_SOURCES = [
@@ -67,23 +67,35 @@ LLVM_BUILD_PATHS_OF_INTEREST: list[str] = [
     "llvm.spec"
 ]
 
+#
+# Program logic
+#
+
 def parse_args() -> argparse.Namespace:
     """Parses arguments and returns the parsed structure."""
     parser = argparse.ArgumentParser("Build the Rust Toolchain")
-    parser.add_argument("--build-name", "-b", default="dev",
-                        help="Release name for the dist result")
-    parser.add_argument("--lto", "-l", default="none", choices=["none", "thin", "full"],
-                        help="Type of LTO to perform. Valid LTO types: none, thin, full")
-    parser.add_argument("--no-patch-abort",
-                        help="Don't abort on patch failure. Useful for local development.")
+    parser.add_argument(
+        "--build-name", "-b", default="dev",
+        help="Release name for the dist result")
+    parser.add_argument(
+        "--lto", "-l", default="none", choices=["none", "thin", "full"],
+        help="Type of LTO to perform. Valid LTO types: none, thin, full")
+    parser.add_argument(
+        "--no-patch-abort",
+        help="Don't abort on patch failure. Useful for local development.")
 
     pgo_group = parser.add_mutually_exclusive_group()
-    pgo_group.add_argument("--profile-generate", type=Path, nargs="?", const=OUT_PATH_PROFILES,
-                           help="Instrument the compiler and store profiles in the specified \
-                                 directory")
-    pgo_group.add_argument("--profile-use", type=Path, nargs="?", const=OUT_PATH_PROFILES,
-                           help="Use the rustc.profdata and llvm.profdata files in the \
-                                 provided directory to optimize the compiler")
+    pgo_group.add_argument(
+        "--profile-generate", type=ResolvedPath, nargs="?", const=OUT_PATH_PROFILES,
+        help="Instrument the compiler and store profiles in the specified directory")
+    pgo_group.add_argument(
+        "--profile-use", type=ResolvedPath, nargs="?", const=OUT_PATH_PROFILES,
+        help="Use the rust.profdata and llvm.profdata files in the provided "
+             "directory to optimize the compiler")
+
+    parser.add_argument(
+        "--cs-profile-generate", type=ResolvedPath, nargs="?", const=OUT_PATH_PROFILES,
+        help="Instrument the LLVM libraries to generate context-sensitive profiles")
 
     args = parser.parse_args()
 
@@ -96,7 +108,6 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Runs the configure-build-fixup-dist pipeline."""
     args = parse_args()
-    build_name = args.build_name
 
     # Add some output padding to make the messages easier to read
     print()
@@ -146,8 +157,12 @@ def main() -> None:
     # Build
     #
 
+    # We only need to perform stage 3 of the bootstrap process when we are
+    # collecting profile data.
+    bootstrap_stage = "3" if args.profile_generate or args.cs_profile_generate else "2"
+
     result = subprocess.run(
-        [PYTHON_PATH, OUT_PATH_RUST_SOURCE / "x.py", "--stage", "2", "install"],
+        [PYTHON_PATH, OUT_PATH_RUST_SOURCE / "x.py", "--stage", bootstrap_stage, "install"],
         cwd=OUT_PATH_RUST_SOURCE, env=env)
 
     if result.returncode != 0:
@@ -172,6 +187,8 @@ def main() -> None:
     # We don't attempt to strip anything under rustlib/ since these include
     # both debug symbols which we may want to link into user code and Rust
     # metadata needed at build time.
+    #
+    # TODO: Investigate the rustc and config.toml stripping mechanisms
     binaries = [path.as_posix() for path in list(
             (OUT_PATH_PACKAGE / "lib").glob("*.so")) + [
             OUT_PATH_PACKAGE / "bin" / "rustc",
@@ -199,10 +216,22 @@ def main() -> None:
             f.unlink()
 
     # Dist
-    print("Creating distribution archive")
-    tarball_path = DIST_PATH / "rust-{0}.tar.gz".format(build_name)
-    subprocess.check_call(["tar", "czf", tarball_path, "."],
-        cwd=OUT_PATH_PACKAGE)
+    print("Creating artifacts")
+    archive_path_profiles = DIST_PATH / f"rust-profraw-{args.build_name}.tar.gz"
+    generate_arg = args.profile_generate or args.cs_profile_generate
+    if generate_arg:
+        run_and_exit_on_failure(f"tar czf {archive_path_profiles} .",
+                                "Failed to create profiles archive.",
+                                cwd=generate_arg)
+
+    if args.profile_use and args.profile_use != DIST_PATH:
+        for p in args.profile_use.glob("*.profdata"):
+            shutil.copy(p, DIST_PATH)
+
+    archive_path_rust = DIST_PATH / f"rust-{args.build_name}.tar.gz"
+    run_and_exit_on_failure(f"tar czf {archive_path_rust} .",
+                            "Failed to create distribution archive",
+                            cwd=OUT_PATH_PACKAGE)
 
 if __name__ == "__main__":
     main()

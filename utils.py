@@ -44,6 +44,10 @@ def version_string_type(arg_string: str) -> str:
     else:
         raise argparse.ArgumentTypeError("Version string is not properly formatted")
 
+
+def ResolvedPath(arg: str) -> Path:
+    return Path(arg).resolve()
+
 #
 # Subprocess helpers
 #
@@ -166,10 +170,10 @@ class GitRepo:
             sys.exit("Failed to compute diff for Git repo {self.path}")
 
 
-    def rm(self, *patterns: Union[str, Path]) -> None:
+    def rm(self, *patterns: Union[str, Path], options="frq") -> None:
         pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
-            f"git rm -fr {pattern}",
+            f"git rm -{options} {pattern}",
             f"Failed to remove files matching pattern(s) '{pattern}' from Git repo {self.path}",
             cwd=self.path)
 

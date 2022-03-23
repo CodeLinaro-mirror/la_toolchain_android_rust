@@ -51,8 +51,12 @@ HOST_CXX_WRAPPER_TEMPLATE:      Path = TEMPLATES_PATH / "host_cxx_wrapper.templa
 HOST_LINKER_WRAPPER_TEMPLATE:   Path = TEMPLATES_PATH / "host_linker_wrapper.template"
 HOST_TARGET_TEMPLATE:           Path = TEMPLATES_PATH / "host_target.template"
 
-LINKER_PIC_FLAG:     str = "-Wl,-mllvm,-relocation-model=pic"
-MACOSX_VERSION_FLAG: str = "-mmacosx-version-min=10.14"
+# TODO: The vp-counters-per-site value needs to be tuned to eliminate warnings about
+#       the innability to allocate counters during context-sensitive profiling.
+LINKER_PIC_FLAG:       str = "-Wl,-mllvm,-relocation-model=pic"
+MACOSX_VERSION_FLAG:   str = "-mmacosx-version-min=10.14"
+LLVM_PROFILE_FLAGS:    str = "-Xclang -mllvm -Xclang -vp-counters-per-site=2"
+LLVM_CS_PROFILE_FLAGS: str = "-Xclang -mllvm -Xclang -vp-counters-per-site=20"
 
 
 def instantiate_template_exec(template_path: Path, output_path: Path, **kwargs: Any) -> None:
@@ -159,16 +163,25 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     rustc_pgo_config: str = ""
 
     if args.profile_generate != None:
-        llvm_flags       += f" -fprofile-generate={args.profile_generate}/llvm -Xclang -mllvm -Xclang -vp-counters-per-site=2"
-        rustc_pgo_config  = f"profile-generate = \"{args.profile_generate}/llvm\""
+        llvm_flags       += f" -fprofile-generate={args.profile_generate / PROFILE_SUBDIR_LLVM} {LLVM_PROFILE_FLAGS}"
+        rustc_pgo_config  = f"profile-generate = \"{args.profile_generate / PROFILE_SUBDIR_RUST}\""
     elif args.profile_use != None:
-        llvm_flags       += f" -fprofile-use={args.profile_use}/llvm.profdata"
-        rustc_pgo_config  = f"profile-use = \"{args.profile_use}/rustc.profdata\""
+        profile_path_llvm: Path = args.profile_use / PROFILE_NAME_LLVM_CS
+        profile_path_rust: Path = args.profile_use / PROFILE_NAME_RUST
 
-        if not (args.profile_use / "llvm.profdata").exists():
-            sys.exit(f"Required file missing: {args.profile_use}/llvm.profdata")
-        elif not (args.profile_use / "rustc.profdata").exists():
-            sys.exit(f"Required file missing: {args.profile_use}/rustc.profdata")
+        if not profile_path_llvm.exists():
+            profile_path_llvm_orig = profile_path_llvm
+            profile_path_llvm = args.profile_use / PROFILE_NAME_LLVM
+            if not profile_path_llvm.exists():
+                sys.exit(f"Required file missing: {profile_path_llvm} or {profile_path_llvm_orig}")
+        elif not profile_path_rust.exists():
+            sys.exit(f"Required file missing: {profile_path_rust}")
+
+        llvm_flags       += f" -fprofile-use={profile_path_llvm}"
+        rustc_pgo_config  = f"profile-use = \"{profile_path_rust}\""
+
+    if args.cs_profile_generate != None:
+        llvm_flags += f" -fcs-profile-generate={args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS} {LLVM_CS_PROFILE_FLAGS}"
 
     host_linker_flags: list[str] = [
         lto_flag,
