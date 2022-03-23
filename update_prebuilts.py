@@ -194,11 +194,14 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
         if target_and_version_path.exists():
             if overwrite:
                 # Empty out the existing directory so we can overwrite the contents
-                RUST_PREBUILT_REPO.rm(target_and_version_path / '*')
+                RUST_PREBUILT_REPO.rm(target_and_version_path / "*")
             else:
                 sys.exit(f"Directory {target_and_version_path} already exists and the 'overwrite' option was not set")
-        else:
-            target_and_version_path.mkdir()
+
+        # Note: If the target and version path already existed and overwrite
+        # was specified then it will have been removed by Git and will need
+        # to be re-created.
+        target_and_version_path.mkdir()
 
         print(f"Extracting archive {artifact_path.name} for {target}/{version}")
         run_quiet_and_exit_on_failure(
