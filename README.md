@@ -8,12 +8,11 @@ produced as a result of this process.
 In order to resolve issues caused Rust toolchain updates ahead of time we will
 perform the release process on the *Beta* version of the toolchain. Testing
 against the Beta version of the toolchain can often hint at possible
-incompataibilities between the Rust toolchain and the Android code base.
-However, sometimes there will be language features available in a *Beta* that
-have not been released in the *Stable* branch. Othertimes issues pop up in the
-*Stable* version of the language that weren't in *Beta*, keeping us toolchain
-developers on our toes and mindful of what/when we commit changes to the code
-base.
+incompatibilities between the Rust toolchain and the Android code base. However,
+sometimes there will be language features available in a *Beta* that have not
+been released in the *Stable* branch. Other times issues pop up in the *Stable*
+version of the language that weren't in *Beta*, keeping us toolchain developers
+on our toes and mindful of what/when we commit changes to the code base.
 
 Testing and deploying the Rust toolchain involves several steps: fetching the
 toolchain from upstream, building it locally, modifying the Android source code
@@ -22,9 +21,9 @@ compiler prebuilts to Gerrit. Since the *Beta* source is only used for testing
 and preparation, only a subset of the steps are performed and the commands used
 differ slightly from those used during a Stable release. We enumerate the steps
 below and show the distinct workflows. The *Beta Workflow* is when the toolchain
-developer is targetting the *Beta* version of the toolchain for the purposes of
-diagnosing out possible issues. The *Stable Workflow* is when the toolchain
-developer is targetting the *Stable* version of the Rust toolchain for the
+developer is targeting the *Beta* version of the toolchain for the purposes of
+diagnosing possible issues. The *Stable Workflow* is when the toolchain
+developer is targeting the *Stable* version of the Rust toolchain for the
 purpose of providing prebuilts for other developers.
 
 In [Section 1](#section-1-the-steps) we cleanly and concisely describe the steps
@@ -80,6 +79,9 @@ fetching beta/nightly archives. Details are listed in the help output.
 $ ./toolchain/android_rust/build.py --lto thin
 ```
 
+There are various reasons why the build might break. Check out Section 2.1 for
+helpful instructions and tips to build Rust.
+
 If the build seems to be going, this will take a while; switch to another task,
 get some coffee, etc.
 
@@ -121,6 +123,8 @@ $ git fetch local-toolchain
 $ git checkout local-toolchain/rust-update-prebuilts-<version_number>
 ```
 
+If hitting an issue with these steps check Section 2.2 for helpful examples.
+
 #### Step 4-B: Test
 
 To build all Rust sources in Android:
@@ -129,10 +133,12 @@ To build all Rust sources in Android:
 $ m rust
 ```
 
-This step may trigger new warnings on existing source files. If the compiler
-suggests a fix apply it. Otherwise make the most reasonable looking change
-necessary to keep the compiler happy and rely on the original author to
-determine correctness during code review.
+There are various things that can break here, take a look at Section 2.3 for
+next steps and instructions. A common issue is that this step triggers new
+warnings on existing source files. If the compiler suggests a fix apply it.
+Otherwise make the most reasonable looking change necessary to keep the compiler
+happy and rely on the original author to determine correctness during code
+review.
 
 Further testing may be performed by building an Android image and booting it.
 
@@ -165,6 +171,8 @@ This may take a while because updates to `rustc` can be hefty in size. Double
 check the response from the server to make sure the change went through.
 
 You'll need to get these changes +2'd and merged before you can proceed.
+
+Check out Section 2.4 for tips for possible issues with Gerrit.
 
 #### Step 8-S: Wait for builds
 
@@ -234,22 +242,36 @@ can break, roadblocks can get in the way, and others might need to be brought
 in. In this section we describe the different types of issues that can occur,
 examples, and instruct on how to move past them.
 
-### Section 2.1: The Rust Build
+#### Section 2.1 : The Rust Build
 
 Things that can break during **Step 2-B**:
 
 -   Patch Application
 -   Directory Structure Change
 -   Binary Incompatibility
--   Comp Failure
--   New Crate (prebuilts/rustc/Android.bp)
+-   Compilation Failure
+-   New Crate
 
 **Patch Application**
 
-If a patch failed to apply, first check if it was merged upstream. So far all
-the patches we have in `patches/` we are trying to upstream, so this is the most
-likely cause. If it has been, use `git` to create a commit removing it from the
-`patches/` directory, e.g.
+The Android project caries several patches for the Rust toolchain source.
+Patches make changes to a code file. In order for a patch file to be
+successfully applied the code that it is targeting needs to match the code file
+closely enough for the algorithm in the `patch` program to identify the relevant
+code. If a patch file fails to be applied then it is likely due to a change in
+the targetted code base. In which case, the next step is to figure out if the
+patch is till necessary to be applied or if that Patch file can be removed.
+
+To know which patch file failed take a look at the terminal error message. The
+error message will also say what *hunk #* and name of the Rust file. Open up the
+patch file in `android_rust/patches` and the Rust file. At this point it'll
+either look like (1) patch was already applied, (2) the codebase was otherwise
+modified.
+
+In the case of (1), it would be useful to verify that the patch was applied.
+This can be done by look at the log history for that Rust file.If you do believe
+that the patch was merged upstream then you just need to remove the patch from
+the `patches/` directory, e.g.
 
 ```
 pushd toolchain/android_rust
@@ -259,7 +281,82 @@ git commit -m "Remove Foo patch that has landed upstream"
 popd
 ```
 
-### Section 2.2: Android Rust Build
+In the case of (2), the codebase was changed in some way. Sometimes the
+difference might be very simple. For instance, one time the difference was just
+a variable name change and looking at the log history confirmed that.
+
+To be able to successfully apply the patch the code in the patch must match the
+code base exactly so go ahead and modify the patch code to match the code base.
+If adding or removing lines of code be sure to update the number of lines that
+is noted in the patch file. If you are unsure if the change upholds the intent
+of the patch go ahead and email the patch owner, but note they will also be
+added as a reviewer.
+
+After editing the patch file, upload the change to Gerrit, and ask the patch
+owner to review the changes to make sure the intent of the patch is still
+Upheld. Use the topic with "source".
+
+Here is an example of updating a patch file to correspond to changes in code
+[CL](https://android-review.googlesource.com/c/toolchain/android_rust/+/1999334).
+
+It may also be useful to create a new patch. The following:
+
+```
+git format-patch HEAD~
+```
+
+will generate a patch file for just the previous commit.
+
+**Directory Structure Change** Sometimes another library needs to be imported.
+We can do this by adding to the `STDLIB_SOURCES` definition in the `do_build.py`
+script.
+
+For example we got the following:
+
+```shell
+error: couldn't read prebuilts/rust/linux-x86/1.59.0/src/stdlibs/library/core/src/../../portable-simd/crates/core_simd/src/mod.rs: No such file or direct
+ory (os error 2)
+   --> prebuilts/rust/linux-x86/1.59.0/src/stdlibs/library/core/src/lib.rs:415:1
+    |
+415 | mod core_simd;
+    | ^^^^^^^^^^^^^^
+error: aborting due to previous error
+
+22:37:34 ninja failed with: exit status 1
+
+#### failed to build some targets (18 seconds) ####
+
+```
+
+and as a result we added the portable-simd library as seen in this
+[CL](https://android-review.googlesource.com/c/toolchain/android_rust/+/1999334/4/do_build.py).
+
+**Binary Incompatibility**
+
+*TODO Chris: text here*
+
+**Compilation Failure**
+
+*TODO: text here*
+
+**New Crate**
+
+Sometimes a new crate is added and a modification needs to be made to
+`prebuilts/rustc/Android.bp`.
+
+*TODO: text here*
+
+#### Section 2.2: Update prebuilts
+
+Things that can break during **Step 3-B**:
+
+-   File undefined
+
+**File undefined**
+
+Try deleting the branch `git branch -D rust-update-prebuilts-1.59.0-local`
+
+#### Section 2.3: Test
 
 Things that can break during **Step 4-B**:
 
@@ -267,10 +364,58 @@ Things that can break during **Step 4-B**:
 -   Build system breakage
 -   Android Source Warnings
 -   Miscompilation
+-   Depreacated Flag
 
-**Android Source Warnings**
+**Hermaticity Breakage**
 
-### Section 2.3: Uploading to Gerrit
+*TODO Chris: text here*
+
+**Build System Breakage**
+
+There can be build breakage issues.
+
+For instance, needing to change `"-C passes='sancov'"`, to `"-C
+passes='sancov-module'"`, such as in this
+[CL](https://android-review.googlesource.com/c/platform/build/soong/+/2003172/4/rust/sanitize.go).
+
+**Android Source Warnings** Android source warnings occur when Android source
+code is incompatible with the latest Rust version. Typically you can just follow
+the compiler errors and make the corresponding changes to the code base.
+
+Here is an example of the workflow to modify file x.rs:
+
+```
+# navigate to the repo with file x.rs
+repo start rust-1.59.0-fixes
+# make changes to x.rs
+git add x.rs
+git commit -a
+repo upload .
+```
+
+In the commit message include the testing approach and Buganizer ticket number.
+In Gerrit for the corresponding CL include the owners of the file as reviewers.
+
+**Miscompilation**
+
+A miscomplication occurs when it succesffully compiles but the result is bad.
+
+*TODO: text here*
+
+**Deprecated flag**
+
+The following error:
+
+```shell
+warning: `-Z symbol-mangling-version` is deprecated; use `-C symbol-mangling-version`
+```
+
+led to changes where that variable was used with `-Z` was changed to `-C` in
+`rust/config/global.go`.
+[CL](https://android-review.googlesource.com/c/platform/build/soong/+/2003172/5/rust/config/global.go)
+.
+
+#### Section 2.4: Upload
 
 Things that can break during **Step 7-S**:
 
