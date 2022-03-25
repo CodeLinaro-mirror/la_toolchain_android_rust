@@ -75,7 +75,7 @@ CURL_PREBUILT_PATH:        Path = PREBUILT_PATH / 'android-emulator-build' / 'cu
 
 # Use of the NDK should eventually be removed so as to make this a Platform
 # target, but is used for now as a transition stage.
-NDK_PATH:         Path = WORKSPACE_PATH / 'toolchain' / 'prebuilts' / 'ndk' / 'r23'
+NDK_PATH:         Path = WORKSPACE_PATH / 'toolchain' / 'prebuilts' / 'ndk' / 'r24'
 NDK_LLVM_PATH:    Path = NDK_PATH / 'toolchains' / 'llvm' / 'prebuilt' / 'linux-x86_64'
 NDK_SYSROOT_PATH: Path = NDK_LLVM_PATH / 'sysroot'
 
