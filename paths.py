@@ -20,7 +20,7 @@ import build_platform
 
 RUST_VERSION_STAGE0: str = '1.59.0'
 CLANG_REVISION:      str = 'r437112b'
-CLANG_NAME:          str = 'clang-{0}'.format(CLANG_REVISION)
+CLANG_NAME:          str = f'clang-{CLANG_REVISION}'
 GLIBC_VERSION:       str = '2.17-4.8'
 GLIBC_SUBVERSION:    str = '4.8.3'
 
@@ -44,6 +44,13 @@ OUT_PATH_PATCHS_LOG:  Path = OUT_PATH / 'patches.log'
 OUT_PATH_PROFILES:    Path = OUT_PATH / 'profiles'
 OUT_PATH_STDLIB_SRCS: Path = OUT_PATH_PACKAGE / 'src' / 'stdlibs'
 OUT_PATH_WRAPPERS:    Path = OUT_PATH / 'wrappers'
+
+PROFILE_SUBDIR_LLVM    = Path('llvm')
+PROFILE_SUBDIR_LLVM_CS = Path('llvm-cs')
+PROFILE_SUBDIR_RUST    = Path('rust')
+PROFILE_NAME_LLVM      = 'llvm.profdata'
+PROFILE_NAME_LLVM_CS   = 'llvm-cs.profdata'
+PROFILE_NAME_RUST      = 'rust.profdata'
 
 DOWNLOADS_PATH: Path = WORKSPACE_PATH / '.downloads'
 
@@ -78,14 +85,15 @@ SOONG_PATH: Path = WORKSPACE_PATH / 'build' / 'soong'
 # Paths to toolchain executables
 #
 
-CARGO_PATH:  Path = RUST_HOST_STAGE0_PATH / 'bin' / 'cargo'
-RUSTC_PATH:  Path = RUST_HOST_STAGE0_PATH / 'bin' / 'rustc'
-PYTHON_PATH: Path = PYTHON_PREBUILT_PATH  / 'bin' / 'python3'
-CC_PATH:     Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang'
-CXX_PATH:    Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang++'
-AR_PATH:     Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ar'
-RANLIB_PATH: Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ranlib'
-CXXSTD_PATH: Path = LLVM_PREBUILT_PATH    / 'include' / 'c++' / 'v1'
+CARGO_PATH:    Path = RUST_HOST_STAGE0_PATH / 'bin' / 'cargo'
+RUSTC_PATH:    Path = RUST_HOST_STAGE0_PATH / 'bin' / 'rustc'
+PYTHON_PATH:   Path = PYTHON_PREBUILT_PATH  / 'bin' / 'python3'
+CC_PATH:       Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang'
+CXX_PATH:      Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang++'
+AR_PATH:       Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ar'
+RANLIB_PATH:   Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ranlib'
+PROFDATA_PATH: Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-profdata'
+CXXSTD_PATH:   Path = LLVM_PREBUILT_PATH    / 'include' / 'c++' / 'v1'
 
 #
 # Paths to binfs executables
