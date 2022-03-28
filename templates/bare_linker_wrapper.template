@@ -1,0 +1,3 @@
+#!/bin/bash
+# No need to pass `--rtlib=compiler-rt -lunwind` arguments here because NDK r23+ only has compiler-rt
+$real_cc $${*/"-lgcc"} -fuse-ld=lld --target=$target $linker_flags
