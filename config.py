@@ -29,8 +29,9 @@ from paths import *
 HOST_TARGETS: list[str] = [build_platform.triple()] + build_platform.alt_triples()
 DEVICE_TARGETS: list[str] = ["aarch64-linux-android", "armv7-linux-androideabi",
                   "x86_64-linux-android", "i686-linux-android"]
+BARE_TARGETS: list[str] = ["aarch64-unknown-none", "riscv32i-unknown-none-elf"]
 
-ALL_TARGETS: list[str] = HOST_TARGETS + DEVICE_TARGETS
+ALL_TARGETS: list[str] = HOST_TARGETS + DEVICE_TARGETS + BARE_TARGETS
 
 TARGET_SPECIFIC_LINKER_FLAGS: dict[str, str] = {
     # When performing LTO, the LLVM IR generator doesn't know about these
@@ -42,6 +43,9 @@ TARGET_SPECIFIC_LINKER_FLAGS: dict[str, str] = {
 
 ANDROID_TARGET_VERSION: str = "31"
 
+BARE_CC_WRAPPER_TEMPLATE:       Path = TEMPLATES_PATH / "bare_cc_wrapper.template"
+BARE_LINKER_WRAPPER_TEMPLATE:   Path = TEMPLATES_PATH / "bare_linker_wrapper.template"
+BARE_TARGET_TEMPLATE:           Path = TEMPLATES_PATH / "bare_target.template"
 CONFIG_TOML_TEMPLATE:           Path = TEMPLATES_PATH / "config.toml.template"
 DEVICE_CC_WRAPPER_TEMPLATE:     Path = TEMPLATES_PATH / "device_cc_wrapper.template"
 DEVICE_LINKER_WRAPPER_TEMPLATE: Path = TEMPLATES_PATH / "device_linker_wrapper.template"
@@ -150,6 +154,35 @@ def device_config(target: str, linker_flags: str) -> str:
             ar=AR_PATH)
 
 
+def bare_config(target: str, linker_flags: str) -> str:
+    cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
+    linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+
+    if target in TARGET_SPECIFIC_LINKER_FLAGS:
+        linker_flags += " " + TARGET_SPECIFIC_LINKER_FLAGS[target]
+
+    instantiate_template_exec(
+        BARE_CC_WRAPPER_TEMPLATE,
+        cc_wrapper_name,
+        real_cc=CC_PATH,
+        target=target)
+
+    instantiate_template_exec(
+        BARE_LINKER_WRAPPER_TEMPLATE,
+        linker_wrapper_name,
+        real_cc=CC_PATH,
+        target=target,
+        linker_flags=linker_flags)
+
+    with open(BARE_TARGET_TEMPLATE, "r") as template_file:
+        return Template(template_file.read()).substitute(
+            target=target,
+            cc=cc_wrapper_name,
+            cxx=cc_wrapper_name,
+            linker=linker_wrapper_name,
+            ar=AR_PATH)
+
+
 def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     """Generates config.toml and compiler wrapers for the rustc build."""
 
@@ -213,6 +246,8 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     host_linker_flags_str_escaped = host_linker_flags_str.replace("$", "\\$")
 
     device_linker_flags = LINKER_PIC_FLAG
+
+    bare_linker_flags = ""
 
     # Shared linking of LLVM is not supported on Darwin.
     llvm_link_shared = "true" if not build_platform.is_darwin() else "false"
@@ -281,6 +316,9 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
         [host_config(target, host_sysroot, host_linker_flags_str_escaped) for target in HOST_TARGETS])
     device_configs = "\n".join(
         [device_config(target, device_linker_flags) for target in DEVICE_TARGETS])
+    bare_configs = "\n".join(
+        [bare_config(target, bare_linker_flags) for target in BARE_TARGETS])
+
 
     all_targets = "[" + ",".join(
         ['"' + target + '"' for target in ALL_TARGETS]) + ']'
@@ -298,4 +336,5 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
         python=PYTHON_PATH,
         pgo_config=rustc_pgo_config,
         host_configs=host_configs,
-        device_configs=device_configs)
+        device_configs=device_configs,
+        bare_configs=bare_configs)

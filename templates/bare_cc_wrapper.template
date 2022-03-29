@@ -1,0 +1,2 @@
+#!/bin/bash
+$real_cc $$* --target=$target

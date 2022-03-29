@@ -3,7 +3,7 @@ changelog-seen = 2
 [llvm]
 ninja = true
 targets = "AArch64;ARM;X86"
-experimental-targets = ""
+experimental-targets = "RISCV"
 link-shared = $llvm_link_shared
 cflags = "$llvm_cflags"
 cxxflags = "$llvm_cxxflags"
@@ -40,3 +40,5 @@ $pgo_config
 $host_configs
 
 $device_configs
+
+$bare_configs
