@@ -20,8 +20,8 @@
 import argparse
 from pathlib import Path
 
-from paths import PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS, PROFILE_NAME_RUST, PROFDATA_PATH
-from utils import ResolvedPath, run_and_exit_on_failure
+from paths import DIST_PATH, PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS, PROFILE_NAME_RUST
+from utils import ResolvedPath, profdate_merge
 
 #
 # Program logic
@@ -33,8 +33,8 @@ def parse_args() -> argparse.Namespace:
         "indir", type=ResolvedPath,
         help="Root directory for finding llvm.profdata, llvm-cs.profdata, and rust.profdata files")
     parser.add_argument(
-        "outdir", type=Path,
-        help="Where to write the combined files")
+        "outdir", type=Path, default=DIST_PATH,
+        help="Where to write the merged profiles")
 
     return parser.parse_args()
 
@@ -42,11 +42,9 @@ def parse_args() -> argparse.Namespace:
 def merge_profiles(indir: Path, input_names: list[str], outpath: Path) -> None:
     inputs: list[str] = []
     for name in input_names:
-        inputs += [p.as_posix() for p in indir.glob(f"**/{name}")]
+        inputs += indir.glob(f"**/{name}")
 
-    run_and_exit_on_failure(
-        f"{PROFDATA_PATH} merge -o {outpath} {' '.join(inputs)}",
-        f"Failed to produce output {outpath}")
+    profdate_merge(inputs, outpath)
 
 
 def main() -> None:
