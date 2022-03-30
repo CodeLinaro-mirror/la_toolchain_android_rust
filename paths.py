@@ -28,6 +28,8 @@ TOOLCHAIN_PATH:   Path = Path(__file__).parent.resolve()
 WORKSPACE_PATH:   Path = (TOOLCHAIN_PATH / '..' / '..').resolve()
 RUST_SOURCE_PATH: Path = (TOOLCHAIN_PATH / '..' / 'rustc').resolve()
 
+ENVSETUP_PATH: Path = WORKSPACE_PATH / "build" / "envsetup.sh"
+
 # We take DIST_DIR through an environment variable rather than an
 # argument to match the interface for traditional Android builds.
 DIST_PATH: Path = (

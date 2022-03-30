@@ -26,6 +26,7 @@ from typing import Optional
 
 import build_platform
 from paths import (
+    ENVSETUP_PATH,
     OUT_PATH_PROFILES,
     PROFILE_NAME_LLVM,
     PROFILE_NAME_LLVM_CS,
@@ -75,6 +76,10 @@ def parse_args() -> argparse.Namespace:
         "--target", type=str, required=True,
         help="Device target to build for")
 
+    parser.add_argument(
+        "--image", "-i", action="store_true",
+        help="Build an image as part of the compiler test")
+
     pgo_group = parser.add_mutually_exclusive_group()
     pgo_group.add_argument(
         "--profile-generate", type=Path, nargs="?", const=OUT_PATH_PROFILES,
@@ -107,13 +112,21 @@ def prepare_prebuilts(prebuilt_path: Path) -> None:
         cwd=target_and_version_path)
 
 
-def build_rust_artifacts(target: str) -> int:
-    # Run 'm rust' for build target
-    ENVSETUP_PATH = Path.cwd() / "build" / "envsetup.sh"
+def run_build_command(target: str, command: str) -> int:
     return subprocess.run(
         f". ./{ENVSETUP_PATH} && lunch {target} && " +
-        f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} m rust",
+        f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}",
         shell=True, stderr=subprocess.STDOUT)
+
+
+def build_rust_artifacts(target: str) -> int:
+    # Run 'm rust' for build target
+    return run_build_command(target, "m rust")
+
+
+def build_image(target: str) -> int:
+    # Run 'm' for build target
+    return run_build_command(target, "m")
 
 
 def export_profiles(profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> None:
@@ -131,6 +144,9 @@ def main() -> None:
     prepare_prebuilts(args.prebuilt_path)
     retcode = build_rust_artifacts(args.target)
     export_profiles(args.profile_generate, args.cs_profile_generate)
+
+    if retcode == 0 and args.image:
+        retcode = build_image(args.target)
 
     sys.exit(retcode)
 
