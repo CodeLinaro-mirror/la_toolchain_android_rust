@@ -34,14 +34,15 @@ of things that can go wrong and provide some guidance on how to get past those.
 
 ## Section 1: The-Steps
 
-### Section 1.1: Set-up
-
-This bit only needs to be done once and needs to be done before following the
-*Beta* or *Stable Workflow*.
+### Section 1.1: Setting up
 
 The Rust toolchain has its own branch manifest in AOSP, named `rust-toolchain`.
-The following commands will create a repo directory (e.g. `~/rust-toolchain`),
-initialize it with the rust-toolchain manifest, and synchronize the repository.
+
+#### Just once
+
+The following step just needs to be done once when setting up. The following
+commands will create a repo directory (e.g. `~/rust-toolchain`), initialize it
+with the rust-toolchain manifest, and synchronize the repository.
 
 ```shell
 $ export TOOLCHAIN=~/rust-toolchain
@@ -56,6 +57,25 @@ the rust-toolchain's version run the following command in the AOSP tree's root:
 
 ```shell
 $ git -C prebuilts/rust remote add local-toolchain $TOOLCHAIN/prebuilts/rust
+```
+
+Similarly, write the following to create a reference to the `build/soong`
+directory
+
+```shell
+$ git -C build/soong remote add local-toolchain $TOOLCHAIN/build/soong
+```
+
+#### Each time
+
+Each time you start to work on updating the toolchain you will want to sync in
+the toolchain and aosp directory.
+
+```shell
+$ cd $TOOLCHAIN
+$ repo sync -j16
+$ // navigate to aosp manifest location
+$ repo sync -j16
 ```
 
 ### Section-1.2: Beta Workflow
@@ -84,6 +104,8 @@ helpful instructions and tips to build Rust.
 
 If the build seems to be going, this will take a while; switch to another task,
 get some coffee, etc.
+
+This step will create *rust-dev-tar.gz*.
 
 *Tips:* - Use the same branch name as you did for `rustc` if you want repo
 tooling to help you later. E.g. rust-update-source-1.59.0
@@ -127,18 +149,21 @@ If hitting an issue with these steps check Section 2.2 for helpful examples.
 
 #### Step 4-B: Test
 
+We will need to rebuild the Android environment
+
+```shell
+source build/envsetup.sh
+lunch aosp_cf_x86_64_phone-userdebug
+```
+
 To build all Rust sources in Android:
 
 ```shell
 $ m rust
 ```
 
-There are various things that can break here, take a look at Section 2.3 for
-next steps and instructions. A common issue is that this step triggers new
-warnings on existing source files. If the compiler suggests a fix apply it.
-Otherwise make the most reasonable looking change necessary to keep the compiler
-happy and rely on the original author to determine correctness during code
-review.
+There are various things that can break here. Take a look at Section 2.3 for
+instructions on how to fix the build.
 
 Further testing may be performed by building an Android image and booting it.
 
@@ -155,7 +180,9 @@ TODO Chris/Stephen: Add instructions here
 
 #### Step 6-S: Fetch Source and Build Rust
 
-Use steps 1-B and 2-B from the *Beta Workflow*, but remove the `-b` flag.
+Use steps 1-B and 2-B from the *Beta Workflow*, but remove the `-b` flag. You
+might also need to use the `--overwrite` flag if you've worked on this release
+before, say during the *Beta Workflow*
 
 #### Step 7-S: Upload
 
@@ -171,6 +198,9 @@ This may take a while because updates to `rustc` can be hefty in size. Double
 check the response from the server to make sure the change went through.
 
 You'll need to get these changes +2'd and merged before you can proceed.
+
+Make sure same topic has been added to both CLs:`rust-update-source-1.59.0`,
+with an updated Rust version number.
 
 Check out Section 2.4 for tips for possible issues with Gerrit.
 
@@ -188,7 +218,8 @@ Follow steps 3-B, 4-B, and 5-B in the *Beta workflow*.
 #### Step 10-S: Update prebuilts
 
 Find the build number (found at **Step 8-S**) of this build (it needs to have
-both darwin and linux targets built) and run the update_prebuilts.py`script:
+both darwin and linux targets built) and run the `update_prebuilts.py`script
+using the build number:
 
 ```shell
 $ ./toolchain/android_rust/update_prebuilts.py -i <issue_number> <build_id> <rust_version>
@@ -196,25 +227,36 @@ $ ./toolchain/android_rust/update_prebuilts.py -i <issue_number> <build_id> <rus
 
 #### Step 11-S: Upload to Gerrit
 
-Upload the new commits in `prebuilts/rust` and `build/soong` to Gerrit, making
-sure to include any necessary modifications that were discovered during local
-testing. It is also possible to upload the changes from rust-toolchain's copy of
-`prebuilts/rust` and the changes to `build/soong` from an AOSP repo.
+Upload the new commits in `prebuilts/rust` and `build/soong` to Gerrit. Do this
+by going into both directories and using:
+
+```shell
+$ repo upload --cbr .
+```
+
+Note that as a last argument `cbr` will upload the current branch and `.` will
+upload this directory. Note that the terminal might flag an issue at this step
+with `f..` instructions, but you can just follow the instructions from the
+command line and retry this step..
+
+This process should create two CLs. Open up the Gerrit links and mark one of
+them as presubmit-ready. Add the same topic to both CLs
+`rust-update-prebuilts-1.59.0`, with an updated Rust version number.
 
 #### Step 12-S: Remove previous prebuilts
 
-Once all of these updates are landed, nobody is using the old compiler version
-anymore. Go ahead and remove the old compiler to save space in your colleagues'
-checkouts:
+Take a look at the existing prebuilts. Look for the lowest version number and
+remove it.
 
 ```shell
 $ cd prebuilts/rust
 $ repo start gc-rust-$OLD_RUST_VERSION
 $ git rm -rf {linux-x86,darwin-x86}/$OLD_RUST_VERSION
 $ git commit -m "Removing unused rustc-$OLD_RUST_VERSION"
+$ repo upload .
 ```
 
-Once that change is landed, congratulations, you're done rolling the toolchain!
+TODO Stephen: Are we still removing old versions?
 
 #### Step 13-S: Tagging (Publish Compiler Prebuilt)
 
@@ -237,10 +279,10 @@ to worry about that part.)
 
 ## Section 2: How to Fix Things
 
-While updating the Rust toolchain there are various isses that can arise. Things
-can break, roadblocks can get in the way, and others might need to be brought
-in. In this section we describe the different types of issues that can occur,
-examples, and instruct on how to move past them.
+While updating the Rust toolchain there are various issues that can arise.
+Things can break, roadblocks can get in the way, and others might need to be
+brought in. In this section we describe the different types of issues that can
+occur, examples, and instruct on how to move past them.
 
 #### Section 2.1 : The Rust Build
 
@@ -254,13 +296,13 @@ Things that can break during **Step 2-B**:
 
 **Patch Application**
 
-The Android project caries several patches for the Rust toolchain source.
+The Android project carries several patches for the Rust toolchain source.
 Patches make changes to a code file. In order for a patch file to be
 successfully applied the code that it is targeting needs to match the code file
 closely enough for the algorithm in the `patch` program to identify the relevant
 code. If a patch file fails to be applied then it is likely due to a change in
-the targetted code base. In which case, the next step is to figure out if the
-patch is till necessary to be applied or if that Patch file can be removed.
+the targeted code base. In which case, the next step is to figure out if the
+patch is still necessary to be applied or if that Patch file can be removed.
 
 To know which patch file failed take a look at the terminal error message. The
 error message will also say what *hunk #* and name of the Rust file. Open up the
@@ -333,18 +375,21 @@ and as a result we added the portable-simd library as seen in this
 
 **Binary Incompatibility**
 
-*TODO Chris: text here*
+*TODO: text here to describe how the user will know this type of error occured
+and how to fix it*
 
 **Compilation Failure**
 
-*TODO: text here*
+*TODO: text here to describe how the user will know this type of error occured
+and how to fix it*
 
 **New Crate**
 
 Sometimes a new crate is added and a modification needs to be made to
 `prebuilts/rustc/Android.bp`.
 
-*TODO: text here*
+*TODO: text here to describe how the user will know this type of error occured
+and how to fix it*
 
 #### Section 2.2: Update prebuilts
 
@@ -364,11 +409,12 @@ Things that can break during **Step 4-B**:
 -   Build system breakage
 -   Android Source Warnings
 -   Miscompilation
--   Depreacated Flag
+-   Deprecated Flag
 
-**Hermaticity Breakage**
+**Hermeticity Breakage**
 
-*TODO Chris: text here*
+*TODO: text here to describe how the user will know this type of error occured
+and how to fix it*
 
 **Build System Breakage**
 
@@ -378,9 +424,12 @@ For instance, needing to change `"-C passes='sancov'"`, to `"-C
 passes='sancov-module'"`, such as in this
 [CL](https://android-review.googlesource.com/c/platform/build/soong/+/2003172/4/rust/sanitize.go).
 
-**Android Source Warnings** Android source warnings occur when Android source
-code is incompatible with the latest Rust version. Typically you can just follow
-the compiler errors and make the corresponding changes to the code base.
+**Android Source Warnings**
+
+A common issue is that this step triggers new warnings on existing source files.
+If the compiler suggests a fix, apply it. Otherwise make the most reasonable
+looking change necessary to keep the compiler happy and rely on the original
+author to determine correctness during code review.
 
 Here is an example of the workflow to modify file x.rs:
 
@@ -389,18 +438,56 @@ Here is an example of the workflow to modify file x.rs:
 repo start rust-1.59.0-fixes
 # make changes to x.rs
 git add x.rs
-git commit -a
+git commit
+```
+
+The commit message should include the testing strategy and buganizer ticket
+number. Here is an example commit message from one of these types of
+[CLs](https://android-review.googlesource.com/c/platform/system/security/+/2002316).
+
+```
+Changes for the Rust 1.59.0 update
+
+bug: 215232614
+Test: TreeHugger and compiling with m rust
+Change-Id: I1d25f5550f60ff1046a3a312f7bd210483bf9364
+```
+
+Note, that it is preferable to create one commit per big change to a repo, so it
+might be helpful to use amend when adding more changes to the code:
+
+```shell
+$ git commit --amend --no-edit
+```
+
+After committing the changes continue to upload them to Gerrit with
+
+```shell
 repo upload .
 ```
 
-In the commit message include the testing approach and Buganizer ticket number.
-In Gerrit for the corresponding CL include the owners of the file as reviewers.
+In Gerrit for the corresponding CL include the owners of the file as reviewers
+and do not set a `topic`.
+
+Next we will need to periodically check-in on these CLs. If they pass presubmit,
+then we are waiting for the CLs to be approved/submitted by the file owners.
+This can take a few days and may require a friendly nudge.
+
+If the files do not pass presubmit then the changes may not have been backwards
+compatible with Rust and we will need to compile it with the latest version of
+Rust. If that is the case on Gerrit include it in the topic
+`rust-update-prebuilts-1.59.0`, with an updated Rust version number.
+
+We are not able to move to the final **Step 13-S** until these CLs created in
+this process has been submitted/accepted.
 
 **Miscompilation**
 
-A miscomplication occurs when it succesffully compiles but the result is bad.
+A miscompilation may have occured when it successfully compiles but the devices
+fail to boot or pass CTS tests.
 
-*TODO: text here*
+*TODO: text here to describe how the user will know this type of error occured
+and how to fix it*
 
 **Deprecated flag**
 
@@ -417,9 +504,10 @@ led to changes where that variable was used with `-Z` was changed to `-C` in
 
 #### Section 2.4: Upload
 
-Things that can break during **Step 7-S**:
+Things that can break during **Step 7-S** and **Step 11-S**:
 
 -   Geritt limitation
+-   Detached head
 
 **Geritt Limitation**
 
@@ -435,9 +523,20 @@ use a "direct push" to skip gerrit's hooks. Look at the initial import
 [bug](http://b/137197907) for an example conversation about importing oversized
 changes.
 
+**Detached head**
+
+Use this to get away from detached head:
+
+```shell
+git branch -u aosp/master
+```
+
 ## Section 3: Notes
 
 ### Troubleshooting a Broken Sysroot Build
+
+*Question: Should this be added to `Section 2.1 Build Error - Missing Crate` or
+is it a different type of error?*
 
 If the sysroot build is broken, check whether the error mentions a missing
 crate. If it does, there have likely been new components added to the sysroot.
@@ -464,6 +563,8 @@ To address this, you will need to:
     and is linked as an `rlib` everywhere it is used.
 
 ### New Build Breaking Lint/Clippy Errors
+
+*TODO: Merge this text into the previous sections*
 
 New lints/clippys can cause build breakage and may require significant
 refactoring as the code base grows. To avoid blocking toolchain upgrades,
