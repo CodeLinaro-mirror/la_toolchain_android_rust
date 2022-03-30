@@ -26,9 +26,7 @@ from typing import Optional
 
 import build_platform
 from paths import (
-    DIST_PATH,
     OUT_PATH_PROFILES,
-    PROFDATA_PATH,
     PROFILE_NAME_LLVM,
     PROFILE_NAME_LLVM_CS,
     PROFILE_NAME_RUST,
@@ -36,7 +34,7 @@ from paths import (
     PROFILE_SUBDIR_LLVM_CS,
     PROFILE_SUBDIR_RUST,
     RUST_PREBUILT_PATH)
-from utils import ResolvedPath, run_and_exit_on_failure, run_quiet_and_exit_on_failure
+from utils import ResolvedPath, export_profile, run_quiet_and_exit_on_failure
 
 RUST_PREBUILT_NAME_PATTERN = re.compile("rust-(?!profraw)(\S*)\.tar\.gz")
 RUST_PROFILES_NAME_PATTERN = re.compile("rust-profraw-(\S*)\.tar\.gz")
@@ -74,8 +72,8 @@ def parse_args() -> argparse.Namespace:
         "--prebuilt-path", type=ResolvedPath, required=True,
         help="Path to either the build artifact or the directory that contains it")
     parser.add_argument(
-        "--profile-import", type=ResolvedPath,
-        help="Path to either a rust-profraw-*.tar.gz file or a directory that contains one")
+        "--target", type=str, required=True,
+        help="Device target to build for")
 
     pgo_group = parser.add_mutually_exclusive_group()
     pgo_group.add_argument(
@@ -84,10 +82,6 @@ def parse_args() -> argparse.Namespace:
     pgo_group.add_argument(
         "--cs-profile-generate", type=Path, nargs="?", const=OUT_PATH_PROFILES,
         help="Path were context-sensitive instrumented prebuilts will place their profiles")
-
-    parser.add_argument(
-        "--target", type=str, required=True,
-        help="Device target to build for")
 
     return parser.parse_args()
 
@@ -113,32 +107,8 @@ def prepare_prebuilts(prebuilt_path: Path) -> None:
         cwd=target_and_version_path)
 
 
-def prepare_profiles(profile_import: Optional[Path], generate_arg: Optional[Path]) -> None:
-    if profile_import == None:
-        return
-
-    if generate_arg == None:
-        sys.exit("A 'profile-generate' flag must be passed if 'profile-import' is used.")
-
-    profile_import = resolve_argument_path(profile_import, RUST_PROFILES_NAME_PATTERN)
-    if profile_import == None:
-        sys.exit("Failed to resolve profiles import path.  Path either doesn't exist or contains multiple profile archives.")
-
-    # Prepare profiles directory
-    if generate_arg.exists():
-        sys.exit(f"Invalid state: {generate_arg.as_posix()} already exists")
-    else:
-        generate_arg.mkdir()
-
-    # Unpack imported profiles
-    run_quiet_and_exit_on_failure(
-        f"tar -xzf {profile_import}",
-        f"Failed to extract profiles archive",
-        cwd=generate_arg)
-
-
-def run_tests(target: str) -> int:
-    # Run 'm rust && m' for build target
+def build_rust_artifacts(target: str) -> int:
+    # Run 'm rust' for build target
     ENVSETUP_PATH = Path.cwd() / "build" / "envsetup.sh"
     return subprocess.run(
         f". ./{ENVSETUP_PATH} && lunch {target} && " +
@@ -146,51 +116,21 @@ def run_tests(target: str) -> int:
         shell=True, stderr=subprocess.STDOUT)
 
 
-def export_profiles(profile_import: Optional[Path], profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> None:
+def export_profiles(profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> None:
     if profile_generate != None:
-        profraw_llvm = " ".join([p.as_posix() for p in
-            (profile_generate / PROFILE_SUBDIR_LLVM).glob("*.profraw")])
-        run_and_exit_on_failure(
-            f"{PROFDATA_PATH} merge -o {DIST_PATH / PROFILE_NAME_LLVM} {profraw_llvm}",
-            "Failed to create LLVM profdata file")
-
-        profraw_rust = " ".join([p.as_posix() for p in
-            (profile_generate / PROFILE_SUBDIR_RUST).glob("*.profraw")])
-        run_and_exit_on_failure(
-            f"{PROFDATA_PATH} merge -o {DIST_PATH / PROFILE_NAME_RUST} {profraw_rust}",
-            "Failed to create Rust profdata file")
+        export_profile(profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
+        export_profile(profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
 
     elif cs_profile_generate != None:
-        profdata_llvm = ""
-        if profile_import:
-            if profile_import.is_dir():
-                llvm_profile = profile_import / PROFILE_NAME_LLVM
-                if llvm_profile.exists():
-                    profdata_llvm = llvm_profile.as_posix()
-            elif profile_import.is_file() and profile_import.name() == PROFILE_NAME_LLVM:
-                profdata_llvm = profile_import.as_posix()
-
-        profraw_llvm_cs = " ".join([p.as_posix() for p in
-            (cs_profile_generate / PROFILE_SUBDIR_LLVM_CS).glob("*.profraw")])
-        run_and_exit_on_failure(
-            f"{PROFDATA_PATH} merge -o {DIST_PATH / PROFILE_NAME_LLVM_CS} {profdata_llvm} {profraw_llvm_cs}",
-            "Failed to create context-sensitive LLVM profdata file")
-
-        if profile_import:
-            if profile_import.is_dir():
-                for p in profile_import.glob("*.profdata"):
-                    shutil.copy(p, DIST_PATH)
-            elif profile_import.is_file() and profile_import:
-                shutil.copy(profile_import, DIST_PATH)
+        export_profile(cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
 
 
 def main() -> None:
     args = parse_args()
 
     prepare_prebuilts(args.prebuilt_path)
-    prepare_profiles(args.profile_import, args.profile_generate or args.cs_profile_generate)
-    retcode = run_tests(args.target)
-    export_profiles(args.profile_import, args.profile_generate, args.cs_profile_generate)
+    retcode = build_rust_artifacts(args.target)
+    export_profiles(args.profile_generate, args.cs_profile_generate)
 
     sys.exit(retcode)
 

@@ -20,7 +20,7 @@ import subprocess
 import stat
 from string import Template
 import sys
-from typing import Any
+from typing import Any, Tuple
 
 import build_platform
 from paths import *
@@ -75,10 +75,16 @@ def instantiate_template_file(template_path: Path, output_path: Path, make_exec:
         output_path.chmod(output_path.stat().st_mode | stat.S_IEXEC)
 
 
+def get_wrapper_paths(target: str) -> Tuple[str, str, str]:
+    return (
+        OUT_PATH_WRAPPERS / f"clang-{target}",
+        OUT_PATH_WRAPPERS / f"clang++-{target}",
+        OUT_PATH_WRAPPERS / f"linker-{target}",
+    )
+
+
 def host_config(target: str, sysroot: str, linker_flags: str) -> str:
-    cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
-    cxx_wrapper_name    = OUT_PATH_WRAPPERS / f"clang++-{target}"
-    linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+    cc_wrapper_name, cxx_wrapper_name, linker_wrapper_name = get_wrapper_paths(target)
 
     macosx_version = MACOSX_VERSION_FLAG if build_platform.is_darwin() else ""
 
@@ -122,8 +128,7 @@ def host_config(target: str, sysroot: str, linker_flags: str) -> str:
 
 
 def device_config(target: str, linker_flags: str) -> str:
-    cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
-    linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+    cc_wrapper_name, _, linker_wrapper_name = get_wrapper_paths(target)
 
     clang_target = target + ANDROID_TARGET_VERSION
 
@@ -155,8 +160,7 @@ def device_config(target: str, linker_flags: str) -> str:
 
 
 def bare_config(target: str, linker_flags: str) -> str:
-    cc_wrapper_name     = OUT_PATH_WRAPPERS / f"clang-{target}"
-    linker_wrapper_name = OUT_PATH_WRAPPERS / f"linker-{target}"
+    cc_wrapper_name, _, linker_wrapper_name = get_wrapper_paths(target)
 
     if target in TARGET_SPECIFIC_LINKER_FLAGS:
         linker_flags += " " + TARGET_SPECIFIC_LINKER_FLAGS[target]

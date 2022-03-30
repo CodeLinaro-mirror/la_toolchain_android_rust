@@ -28,7 +28,7 @@ import sys
 import build_platform
 import config
 from paths import *
-from utils import ResolvedPath, run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
+from utils import ResolvedPath, export_profile, run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
 
 
 STDLIB_SOURCES = [
@@ -180,7 +180,10 @@ def main() -> None:
         for stdlib in STDLIB_SOURCES:
             shutil.copytree(OUT_PATH_RUST_SOURCE / stdlib, OUT_PATH_STDLIB_SRCS / stdlib)
 
+    #
     # Fixup
+    #
+
     # The Rust build doesn't have an option to auto-strip binaries, so we do
     # it here.
     # We don't attempt to strip .rlibs since it prevents building Rust binaries.
@@ -215,14 +218,18 @@ def main() -> None:
         for f in OUT_PATH_STDLIB_SRCS.glob("**/Android.{mk,bp}"):
             f.unlink()
 
+    #
     # Dist
+    #
+
     print("Creating artifacts")
-    archive_path_profiles = DIST_PATH / f"rust-profraw-{args.build_name}.tar.gz"
-    generate_arg = args.profile_generate or args.cs_profile_generate
-    if generate_arg:
-        run_and_exit_on_failure(f"tar czf {archive_path_profiles} .",
-                                "Failed to create profiles archive.",
-                                cwd=generate_arg)
+
+    if args.profile_generate:
+        export_profile(args.profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
+        export_profile(args.profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
+
+    elif args.cs_profile_generate:
+        export_profile(args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
 
     if args.profile_use and args.profile_use != DIST_PATH:
         for p in args.profile_use.glob("*.profdata"):

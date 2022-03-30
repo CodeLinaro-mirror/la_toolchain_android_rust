@@ -24,6 +24,7 @@ import sys
 import subprocess
 from typing import Any, TextIO, Union, cast
 
+from paths import DIST_PATH, PROFDATA_PATH
 
 GIT_REFERENCE_BRANCH = "aosp/master"
 
@@ -196,3 +197,16 @@ def replace_file_contents(f: TextIO, new_contents: str) -> None:
     f.write(new_contents)
     f.truncate()
     f.flush()
+
+#
+# LLVM tool helpers
+#
+
+def profdate_merge(inputs: list[Path], outpath: Path) -> None:
+    run_and_exit_on_failure(
+        f"{PROFDATA_PATH} merge -o {outpath} {' '.join([p.as_posix() for p in inputs])}",
+        f"Failed to produce merged profile {outpath}")
+
+
+def export_profile(indir: Path, outname: str) -> None:
+    profdate_merge(indir.glob("*.profraw"), DIST_PATH / outname)
