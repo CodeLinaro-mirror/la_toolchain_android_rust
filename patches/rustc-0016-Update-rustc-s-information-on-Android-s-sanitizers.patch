@@ -11,17 +11,17 @@ Bug: 194400612
 Change-Id: I67cf17db149fbb19ef2cf9ab4e166218fded78e5
 ---
  compiler/rustc_codegen_ssa/src/back/link.rs          | 12 +++++++-----
- compiler/rustc_target/src/spec/android_base.rs       |  4 +++-
+ compiler/rustc_target/src/spec/android_base.rs       |  2 ++
  .../rustc_target/src/spec/i686_unknown_linux_gnu.rs  |  3 ++-
  compiler/rustc_target/src/spec/mod.rs                |  3 +++
  src/tools/compiletest/src/util.rs                    |  6 ++++++
- 5 files changed, 21 insertions(+), 7 deletions(-)
+ 5 files changed, 20 insertions(+), 6 deletions(-)
 
 diff --git a/compiler/rustc_codegen_ssa/src/back/link.rs b/compiler/rustc_codegen_ssa/src/back/link.rs
-index cf1c605889..23851daad9 100644
+index 58e0667d67..046ca56ab8 100644
 --- a/compiler/rustc_codegen_ssa/src/back/link.rs
 +++ b/compiler/rustc_codegen_ssa/src/back/link.rs
-@@ -1067,11 +1067,13 @@ fn add_sanitizer_libraries(sess: &Session, crate_type: CrateType, linker: &mut d
+@@ -1028,11 +1028,13 @@ fn add_sanitizer_libraries(sess: &Session, crate_type: CrateType, linker: &mut d
      // both executables and dynamic shared objects. Everywhere else the runtimes
      // are currently distributed as static liraries which should be linked to
      // executables only.
@@ -41,21 +41,14 @@ index cf1c605889..23851daad9 100644
      if !needs_runtime {
          return;
 diff --git a/compiler/rustc_target/src/spec/android_base.rs b/compiler/rustc_target/src/spec/android_base.rs
-index 0f01a78c8c..012ff4da89 100644
+index dc14d260e9..6b222c5210 100644
 --- a/compiler/rustc_target/src/spec/android_base.rs
 +++ b/compiler/rustc_target/src/spec/android_base.rs
-@@ -1,8 +1,9 @@
--use crate::spec::{LinkerFlavor, TargetOptions};
-+use crate::spec::{LinkerFlavor, SanitizerSet, TargetOptions};
-
+@@ -3,9 +3,11 @@ use crate::spec::TargetOptions;
  pub fn opts() -> TargetOptions {
      let mut base = super::linux_base::opts();
      base.os = "android".to_string();
 +    base.is_like_android = true;
-     // Many of the symbols defined in compiler-rt are also defined in libgcc.
-     // Android's linker doesn't like that by default.
-     base.pre_link_args
-@@ -12,6 +13,7 @@ pub fn opts() -> TargetOptions {
      base.dwarf_version = Some(2);
      base.position_independent_executables = true;
      base.has_thread_local = false;
@@ -80,10 +73,10 @@ index 165505ee73..4c1203cd00 100644
      // don't use probe-stack=inline-asm until rust#83139 and rust#84667 are resolved
      base.stack_probes = StackProbeType::Call;
 diff --git a/compiler/rustc_target/src/spec/mod.rs b/compiler/rustc_target/src/spec/mod.rs
-index ff5dfa3f74..e42c9eaf44 100644
+index 92678aed5b..0bb242c65c 100644
 --- a/compiler/rustc_target/src/spec/mod.rs
 +++ b/compiler/rustc_target/src/spec/mod.rs
-@@ -1176,6 +1176,8 @@ pub struct TargetOptions {
+@@ -1245,6 +1245,8 @@ pub struct TargetOptions {
      pub is_like_fuchsia: bool,
      /// Whether a target toolchain is like WASM.
      pub is_like_wasm: bool,
@@ -92,7 +85,7 @@ index ff5dfa3f74..e42c9eaf44 100644
      /// Version of DWARF to use if not using the default.
      /// Useful because some platforms (osx, bsd) only want up to DWARF2.
      pub dwarf_version: Option<u32>,
-@@ -1398,6 +1400,7 @@ impl Default for TargetOptions {
+@@ -1473,6 +1475,7 @@ impl Default for TargetOptions {
              is_like_msvc: false,
              is_like_fuchsia: false,
              is_like_wasm: false,
@@ -101,7 +94,7 @@ index ff5dfa3f74..e42c9eaf44 100644
              linker_is_gnu: true,
              allows_weak_linkage: true,
 diff --git a/src/tools/compiletest/src/util.rs b/src/tools/compiletest/src/util.rs
-index d03c21dc50..3e4fc76d1e 100644
+index bed509d77b..43c05728da 100644
 --- a/src/tools/compiletest/src/util.rs
 +++ b/src/tools/compiletest/src/util.rs
 @@ -88,9 +88,15 @@ const ARCH_TABLE: &[(&str, &str)] = &[
@@ -121,5 +114,5 @@ index d03c21dc50..3e4fc76d1e 100644
      "x86_64-unknown-linux-gnu",
  ];
 --
-2.34.0.rc2.393.gf8c9666880-goog
+2.35.1.1094.g7c7d902a7c-goog
 
