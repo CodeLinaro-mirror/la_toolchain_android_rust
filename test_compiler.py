@@ -114,18 +114,20 @@ def prepare_prebuilts(prebuilt_path: Path) -> None:
 
 def run_build_command(target: str, command: str) -> int:
     return subprocess.run(
-        f". ./{ENVSETUP_PATH} && lunch {target} && " +
+        f". {ENVSETUP_PATH} && lunch {target} && " +
         f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}",
-        shell=True, stdout=subprocess.STDOUT, stderr=subprocess.STDOUT).returncode
+        shell=shutil.which("bash"), stderr=subprocess.STDOUT).returncode
 
 
 def build_rust_artifacts(target: str) -> int:
     # Run 'm rust' for build target
+    print("Building Rust targets")
     return run_build_command(target, "m rust")
 
 
 def build_image(target: str) -> int:
     # Run 'm' for build target
+    print("Building Android image")
     return run_build_command(target, "m")
 
 
