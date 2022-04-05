@@ -116,7 +116,7 @@ def run_build_command(target: str, command: str) -> int:
     return subprocess.run(
         f". {ENVSETUP_PATH} && lunch {target} && " +
         f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}",
-        shell=shutil.which("bash"), stderr=subprocess.STDOUT).returncode
+        shell=True, stderr=subprocess.STDOUT).returncode
 
 
 def build_rust_artifacts(target: str) -> int:
