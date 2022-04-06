@@ -96,6 +96,7 @@ AR_PATH:       Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ar'
 RANLIB_PATH:   Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ranlib'
 PROFDATA_PATH: Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-profdata'
 CXXSTD_PATH:   Path = LLVM_PREBUILT_PATH    / 'include' / 'c++' / 'v1'
+BASH_PATH:     Path = Path('/bin/bash')
 
 #
 # Paths to binfs executables

@@ -26,6 +26,7 @@ from typing import Optional
 
 import build_platform
 from paths import (
+    BASH_PATH,
     ENVSETUP_PATH,
     OUT_PATH_PROFILES,
     PROFILE_NAME_LLVM,
@@ -113,10 +114,12 @@ def prepare_prebuilts(prebuilt_path: Path) -> None:
 
 
 def run_build_command(target: str, command: str) -> int:
-    return subprocess.run(
+    prefixed_command = (
         f". {ENVSETUP_PATH} && lunch {target} && " +
-        f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}",
-        shell=True, stderr=subprocess.STDOUT).returncode
+        f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}")
+    bashed_command = [BASH_PATH, '-c', prefixed_command]
+
+    return subprocess.run(bashed_command, stderr=subprocess.STDOUT).returncode
 
 
 def build_rust_artifacts(target: str) -> int:
