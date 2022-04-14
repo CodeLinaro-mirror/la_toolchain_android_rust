@@ -33,7 +33,7 @@ def parse_args() -> argparse.Namespace:
         "indir", type=ResolvedPath,
         help="Root directory for finding llvm.profdata, llvm-cs.profdata, and rust.profdata files")
     parser.add_argument(
-        "outdir", type=Path, default=DIST_PATH,
+        "--outdir", "-o", type=Path, default=DIST_PATH,
         help="Where to write the merged profiles")
 
     return parser.parse_args()
