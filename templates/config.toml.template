@@ -26,6 +26,9 @@ extended = true
 tools = ["cargo", "clippy", "rustfmt", "rust-analyzer"]
 cargo-native-static = true
 
+[dist]
+compression-formats = ["gz"]
+
 [install]
 prefix = "/"
 sysconfdir = "etc"
