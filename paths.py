@@ -36,6 +36,8 @@ DIST_PATH: Path = (
     Path(os.environ["DIST_DIR"]).resolve() if "DIST_DIR" in os.environ else
     (WORKSPACE_PATH / "dist"))
 
+BUILD_COMMAND_RECORD_PATH: Path = DIST_PATH / "rust_build_command.sh"
+
 PATCHES_PATH:   Path = TOOLCHAIN_PATH / "patches"
 TEMPLATES_PATH: Path = TOOLCHAIN_PATH / "templates"
 
