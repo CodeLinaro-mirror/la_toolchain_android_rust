@@ -199,6 +199,26 @@ def replace_file_contents(f: TextIO, new_contents: str) -> None:
     f.flush()
 
 #
+# Path helpers
+#
+
+def extend_suffix(path: Path, new_suffix: str) -> Path:
+    return path.with_suffix(path.suffix + new_suffix)
+
+
+def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict=False) -> list[Path]:
+    paths: list[Path] = []
+    for p in patterns:
+        matches = list(base_dir.glob(p))
+        if len(matches) == 1:
+            paths += matches
+        else:
+            if len(matches) > 1 or strict:
+                raise RuntimeError(f"Unexpected number of matches ({len(matches)}) for pattern: {p}")
+
+    return paths
+
+#
 # LLVM tool helpers
 #
 
