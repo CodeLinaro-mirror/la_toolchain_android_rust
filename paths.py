@@ -18,15 +18,15 @@ from pathlib import Path
 
 import build_platform
 
-RUST_VERSION_STAGE0: str = '1.60.0'
-CLANG_REVISION:      str = 'r450784c'
-CLANG_NAME:          str = f'clang-{CLANG_REVISION}'
-GLIBC_VERSION:       str = '2.17-4.8'
-GLIBC_SUBVERSION:    str = '4.8.3'
+RUST_VERSION_STAGE0: str = "1.60.0"
+CLANG_REVISION:      str = "r450784d"
+CLANG_NAME:          str = f"clang-{CLANG_REVISION}"
+GLIBC_VERSION:       str = "2.17-4.8"
+GLIBC_SUBVERSION:    str = "4.8.3"
 
 TOOLCHAIN_PATH:   Path = Path(__file__).parent.resolve()
-WORKSPACE_PATH:   Path = (TOOLCHAIN_PATH / '..' / '..').resolve()
-RUST_SOURCE_PATH: Path = (TOOLCHAIN_PATH / '..' / 'rustc').resolve()
+WORKSPACE_PATH:   Path = (TOOLCHAIN_PATH / ".." / "..").resolve()
+RUST_SOURCE_PATH: Path = (TOOLCHAIN_PATH / ".." / "rustc").resolve()
 
 ENVSETUP_PATH: Path = WORKSPACE_PATH / "build" / "envsetup.sh"
 
@@ -36,70 +36,76 @@ DIST_PATH: Path = (
     Path(os.environ["DIST_DIR"]).resolve() if "DIST_DIR" in os.environ else
     (WORKSPACE_PATH / "dist"))
 
-PATCHES_PATH:   Path = TOOLCHAIN_PATH / 'patches'
-TEMPLATES_PATH: Path = TOOLCHAIN_PATH / 'templates'
+PATCHES_PATH:   Path = TOOLCHAIN_PATH / "patches"
+TEMPLATES_PATH: Path = TOOLCHAIN_PATH / "templates"
 
-OUT_PATH:             Path = WORKSPACE_PATH / 'out'
-OUT_PATH_RUST_SOURCE: Path = OUT_PATH / 'rustc'
-OUT_PATH_PACKAGE:     Path = OUT_PATH / 'package'
-OUT_PATH_PATCHS_LOG:  Path = OUT_PATH / 'patches.log'
-OUT_PATH_PROFILES:    Path = OUT_PATH / 'profiles'
-OUT_PATH_STDLIB_SRCS: Path = OUT_PATH_PACKAGE / 'src' / 'stdlibs'
-OUT_PATH_WRAPPERS:    Path = OUT_PATH / 'wrappers'
+OUT_PATH:             Path = WORKSPACE_PATH / "out"
+OUT_PATH_RUST_SOURCE: Path = OUT_PATH / "rustc"
+OUT_PATH_PACKAGE:     Path = OUT_PATH / "package"
+OUT_PATH_PATCHS_LOG:  Path = OUT_PATH / "patches.log"
+OUT_PATH_PROFILES:    Path = OUT_PATH / "profiles"
+OUT_PATH_STDLIB_SRCS: Path = OUT_PATH_PACKAGE / "src" / "stdlibs"
+OUT_PATH_WRAPPERS:    Path = OUT_PATH / "wrappers"
 
-PROFILE_SUBDIR_LLVM    = Path('llvm')
-PROFILE_SUBDIR_LLVM_CS = Path('llvm-cs')
-PROFILE_SUBDIR_RUST    = Path('rust')
-PROFILE_NAME_LLVM      = 'llvm.profdata'
-PROFILE_NAME_LLVM_CS   = 'llvm-cs.profdata'
-PROFILE_NAME_RUST      = 'rust.profdata'
+PROFILE_SUBDIR_BOLT    = Path("bolt")
+PROFILE_SUBDIR_LLVM    = Path("llvm")
+PROFILE_SUBDIR_LLVM_CS = Path("llvm-cs")
+PROFILE_SUBDIR_RUST    = Path("rust")
+PROFILE_NAME_LLVM      = "llvm.profdata"
+PROFILE_NAME_LLVM_CS   = "llvm-cs.profdata"
+PROFILE_NAME_RUST      = "rust.profdata"
 
-DOWNLOADS_PATH: Path = WORKSPACE_PATH / '.downloads'
+BOLT_LOG_PATH: Path =  WORKSPACE_PATH / "out" / "bolt.rust.log"
 
-LLVM_BUILD_PATH: Path = OUT_PATH_RUST_SOURCE / 'build' / build_platform.triple() / 'llvm' / 'build'
+DOWNLOADS_PATH: Path = WORKSPACE_PATH / ".downloads"
 
-PREBUILT_PATH:         Path = WORKSPACE_PATH / 'prebuilts'
-RUST_PREBUILT_PATH:    Path = PREBUILT_PATH / 'rust'
+LLVM_BUILD_PATH: Path = OUT_PATH_RUST_SOURCE / "build" / build_platform.triple() / "llvm" / "build"
+
+PREBUILT_PATH:         Path = WORKSPACE_PATH / "prebuilts"
+RUST_PREBUILT_PATH:    Path = PREBUILT_PATH / "rust"
 RUST_HOST_STAGE0_PATH: Path = RUST_PREBUILT_PATH / build_platform.prebuilt() / RUST_VERSION_STAGE0
-LLVM_PREBUILT_PATH:    Path = PREBUILT_PATH / 'clang' / 'host' / build_platform.prebuilt() / CLANG_NAME
-LLVM_CXX_RUNTIME_PATH: Path = LLVM_PREBUILT_PATH / 'lib64'
+LLVM_HOST_PATH:        Path = PREBUILT_PATH / "clang" / "host" / build_platform.prebuilt()
+LLVM_PREBUILT_PATH:    Path = LLVM_HOST_PATH / CLANG_NAME
+LLVM_CXX_RUNTIME_PATH: Path = LLVM_PREBUILT_PATH / "lib64"
 
-GCC_TOOLCHAIN_PATH: Path = PREBUILT_PATH / 'gcc' / build_platform.prebuilt() / 'host' / ('x86_64-linux-glibc' + GLIBC_VERSION)
-GCC_LIB_PATH:       Path = GCC_TOOLCHAIN_PATH / 'x86_64-linux' / 'lib64'
-GCC_LIBGCC_PATH:    Path = GCC_TOOLCHAIN_PATH / 'lib' / 'gcc' / 'x86_64-linux' / GLIBC_SUBVERSION
-GCC_SYSROOT_PATH:   Path = GCC_TOOLCHAIN_PATH / 'sysroot'
+GCC_TOOLCHAIN_PATH: Path = PREBUILT_PATH / "gcc" / build_platform.prebuilt() / "host" / ("x86_64-linux-glibc" + GLIBC_VERSION)
+GCC_LIB_PATH:       Path = GCC_TOOLCHAIN_PATH / "x86_64-linux" / "lib64"
+GCC_LIBGCC_PATH:    Path = GCC_TOOLCHAIN_PATH / "lib" / "gcc" / "x86_64-linux" / GLIBC_SUBVERSION
+GCC_SYSROOT_PATH:   Path = GCC_TOOLCHAIN_PATH / "sysroot"
 
-PYTHON_PREBUILT_PATH:      Path = PREBUILT_PATH / 'python' / build_platform.prebuilt()
-CMAKE_PREBUILT_PATH:       Path = PREBUILT_PATH / 'cmake' / build_platform.prebuilt()
-NINJA_PREBUILT_PATH:       Path = PREBUILT_PATH / 'ninja' / build_platform.prebuilt()
-BUILD_TOOLS_PREBUILT_PATH: Path = PREBUILT_PATH / 'build-tools' / 'path' / build_platform.prebuilt()
-CURL_PREBUILT_PATH:        Path = PREBUILT_PATH / 'android-emulator-build' / 'cur' / build_platform.prebuilt_full()
+PYTHON_PREBUILT_PATH:      Path = PREBUILT_PATH / "python" / build_platform.prebuilt()
+CMAKE_PREBUILT_PATH:       Path = PREBUILT_PATH / "cmake" / build_platform.prebuilt()
+NINJA_PREBUILT_PATH:       Path = PREBUILT_PATH / "ninja" / build_platform.prebuilt()
+BUILD_TOOLS_PREBUILT_PATH: Path = PREBUILT_PATH / "build-tools" / "path" / build_platform.prebuilt()
+CURL_PREBUILT_PATH:        Path = PREBUILT_PATH / "android-emulator-build" / "cur" / build_platform.prebuilt_full()
 
 # Use of the NDK should eventually be removed so as to make this a Platform
 # target, but is used for now as a transition stage.
-NDK_PATH:         Path = WORKSPACE_PATH / 'toolchain' / 'prebuilts' / 'ndk' / 'r24'
-NDK_LLVM_PATH:    Path = NDK_PATH / 'toolchains' / 'llvm' / 'prebuilt' / 'linux-x86_64'
-NDK_SYSROOT_PATH: Path = NDK_LLVM_PATH / 'sysroot'
+NDK_PATH:         Path = WORKSPACE_PATH / "toolchain" / "prebuilts" / "ndk" / "r24"
+NDK_LLVM_PATH:    Path = NDK_PATH / "toolchains" / "llvm" / "prebuilt" / "linux-x86_64"
+NDK_SYSROOT_PATH: Path = NDK_LLVM_PATH / "sysroot"
 
-SOONG_PATH: Path = WORKSPACE_PATH / 'build' / 'soong'
+SOONG_PATH: Path = WORKSPACE_PATH / "build" / "soong"
 
 #
 # Paths to toolchain executables
 #
 
-CARGO_PATH:    Path = RUST_HOST_STAGE0_PATH / 'bin' / 'cargo'
-RUSTC_PATH:    Path = RUST_HOST_STAGE0_PATH / 'bin' / 'rustc'
-PYTHON_PATH:   Path = PYTHON_PREBUILT_PATH  / 'bin' / 'python3'
-CC_PATH:       Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang'
-CXX_PATH:      Path = LLVM_PREBUILT_PATH    / 'bin' / 'clang++'
-AR_PATH:       Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ar'
-RANLIB_PATH:   Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-ranlib'
-PROFDATA_PATH: Path = LLVM_PREBUILT_PATH    / 'bin' / 'llvm-profdata'
-CXXSTD_PATH:   Path = LLVM_PREBUILT_PATH    / 'include' / 'c++' / 'v1'
-BASH_PATH:     Path = Path('/bin/bash')
+CARGO_PATH:    Path = RUST_HOST_STAGE0_PATH / "bin" / "cargo"
+RUSTC_PATH:    Path = RUST_HOST_STAGE0_PATH / "bin" / "rustc"
+PYTHON_PATH:   Path = PYTHON_PREBUILT_PATH  / "bin" / "python3"
+CC_PATH:       Path = LLVM_PREBUILT_PATH    / "bin" / "clang"
+CXX_PATH:      Path = LLVM_PREBUILT_PATH    / "bin" / "clang++"
+AR_PATH:       Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-ar"
+RANLIB_PATH:   Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-ranlib"
+PROFDATA_PATH: Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-profdata"
+OBJCOPY_PATH:  Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-objcopy"
+CXXSTD_PATH:   Path = LLVM_PREBUILT_PATH    / "include" / "c++" / "v1"
+BOLT_PATH:     Path = LLVM_HOST_PATH        / "clang-r450784" / "bin"/ "llvm-bolt"
+BASH_PATH:     Path = Path("/bin/bash")
 
 #
 # Paths to binfs executables
 #
 
-FETCH_ARTIFACT_PATH: Path = Path('/google/data/ro/projects/android/fetch_artifact')
+FETCH_ARTIFACT_PATH: Path = Path("/google/data/ro/projects/android/fetch_artifact")
