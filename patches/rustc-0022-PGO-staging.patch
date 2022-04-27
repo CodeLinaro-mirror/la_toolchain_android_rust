@@ -17,10 +17,10 @@ index 007ca9f7f5..2bd2355660 100644
 +++ b/src/bootstrap/compile.rs
 @@ -594,7 +594,7 @@ impl Step for Rustc {
          }
- 
+
          let is_collecting = if let Some(path) = &builder.config.rust_profile_generate {
 -            if compiler.stage == 1 {
-+            if compiler.stage >= 2 {
++            if compiler.stage >= 0 {
                  cargo.rustflag(&format!("-Cprofile-generate={}", path));
                  // Apparently necessary to avoid overflowing the counters during
                  // a Cargo build profile
@@ -29,10 +29,10 @@ index 007ca9f7f5..2bd2355660 100644
              }
          } else if let Some(path) = &builder.config.rust_profile_use {
 -            if compiler.stage == 1 {
-+            if compiler.stage >= 2 {
++            if compiler.stage >= 0 {
                  cargo.rustflag(&format!("-Cprofile-use={}", path));
                  cargo.rustflag("-Cllvm-args=-pgo-warn-missing-function");
                  true
--- 
+--
 2.35.1.265.g69c8d7142f-goog
 

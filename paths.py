@@ -56,6 +56,7 @@ PROFILE_SUBDIR_RUST    = Path("rust")
 PROFILE_NAME_LLVM      = "llvm.profdata"
 PROFILE_NAME_LLVM_CS   = "llvm-cs.profdata"
 PROFILE_NAME_RUST      = "rust.profdata"
+PROFILE_NAME_MERGED    = "rust+llvm.profdata"
 
 BOLT_LOG_PATH: Path =  WORKSPACE_PATH / "out" / "bolt.rust.log"
 

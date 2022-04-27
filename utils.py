@@ -206,7 +206,7 @@ def extend_suffix(path: Path, new_suffix: str) -> Path:
     return path.with_suffix(path.suffix + new_suffix)
 
 
-def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict=False) -> list[Path]:
+def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict: bool = False) -> list[Path]:
     paths: list[Path] = []
     for p in patterns:
         matches = list(base_dir.glob(p))
@@ -222,11 +222,17 @@ def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict=False) 
 # LLVM tool helpers
 #
 
-def profdate_merge(inputs: list[Path], outpath: Path) -> None:
+def profdata_merge(inputs: list[Path], outpath: Path) -> None:
     run_and_exit_on_failure(
         f"{PROFDATA_PATH} merge -o {outpath} {' '.join([p.as_posix() for p in inputs])}",
         f"Failed to produce merged profile {outpath}")
 
 
 def export_profile(indir: Path, outname: str) -> None:
-    profdate_merge(list(indir.glob("*.profraw")), DIST_PATH / outname)
+    profdata_merge(list(indir.glob("*.profraw")), DIST_PATH / outname)
+
+
+def strip_symbols(obj_path: Path, flag: str = "--strip-unneeded") -> None:
+    result = subprocess.run([OBJCOPY_PATH, "--keep-section='.rustc'", flag, obj_path.as_posix()])
+    if result.returncode != 0:
+        raise RuntimeError(f"Unable to strip symbols from {obj_path.as_posix()}")

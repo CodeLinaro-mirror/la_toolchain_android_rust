@@ -21,7 +21,7 @@ import argparse
 from pathlib import Path
 
 from paths import DIST_PATH, PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS, PROFILE_NAME_RUST
-from utils import ResolvedPath, profdate_merge
+from utils import ResolvedPath, profdata_merge
 
 #
 # Program logic
@@ -44,7 +44,8 @@ def merge_profiles(indir: Path, input_names: list[str], outpath: Path) -> None:
     for name in input_names:
         inputs += indir.glob(f"**/{name}")
 
-    profdate_merge(inputs, outpath)
+    if inputs:
+        profdata_merge(inputs, outpath)
 
 
 def main() -> None:

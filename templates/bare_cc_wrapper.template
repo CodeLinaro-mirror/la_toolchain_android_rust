@@ -1,2 +1,2 @@
 #!/bin/bash
-$real_cc $$* --target=$target
+$real_cc $$* $cc_flags

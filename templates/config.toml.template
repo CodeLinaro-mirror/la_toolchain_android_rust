@@ -42,6 +42,6 @@ $pgo_config
 
 $host_configs
 
-$device_configs
-
 $bare_configs
+
+$device_configs

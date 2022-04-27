@@ -136,8 +136,9 @@ def build_image(target: str) -> int:
 
 def export_profiles(profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> None:
     if profile_generate != None:
-        export_profile(profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
         export_profile(profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
+        if (profile_generate / PROFILE_SUBDIR_LLVM).exists():
+            export_profile(profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
 
     elif cs_profile_generate != None:
         export_profile(cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)

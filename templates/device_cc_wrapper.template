@@ -1,2 +1,2 @@
 #!/bin/bash
-$real_cc $$* --target=$target --sysroot=$sysroot -fPIC
+$real_cc $$* $cc_flags

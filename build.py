@@ -28,7 +28,12 @@ import sys
 import build_platform
 import config
 from paths import *
-from utils import ResolvedPath, export_profile, run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
+from utils import (
+    ResolvedPath,
+    export_profile,
+    run_and_exit_on_failure,
+    run_quiet,
+    run_quiet_and_exit_on_failure)
 
 #
 # Constants
@@ -99,6 +104,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--cs-profile-generate", type=ResolvedPath, nargs="?", const=OUT_PATH_PROFILES,
         help="Instrument the LLVM libraries to generate context-sensitive profiles")
+    parser.add_argument(
+        "--emit-relocs", action="store_true",
+        help="Emit relocation information")
+    parser.add_argument(
+        "--gc-sections", action="store_true",
+        help="Garbage collect sections during linking")
+    parser.add_argument(
+        "--llvm-linkage", default="static", choices=["static", "shared"],
+        help="Specify if LLVM should be built as a static or shared library")
 
     args = parser.parse_args()
 
@@ -231,8 +245,9 @@ def main() -> None:
     print("Creating artifacts")
 
     if args.profile_generate:
-        export_profile(args.profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
         export_profile(args.profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
+        if args.llvm_linkage == "shared":
+            export_profile(args.profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
 
     elif args.cs_profile_generate:
         export_profile(args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
