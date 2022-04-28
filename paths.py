@@ -103,8 +103,8 @@ AR_PATH:       Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-ar"
 RANLIB_PATH:   Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-ranlib"
 PROFDATA_PATH: Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-profdata"
 OBJCOPY_PATH:  Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-objcopy"
+BOLT_PATH:     Path = LLVM_PREBUILT_PATH    / "bin" / "llvm-bolt"
 CXXSTD_PATH:   Path = LLVM_PREBUILT_PATH    / "include" / "c++" / "v1"
-BOLT_PATH:     Path = LLVM_HOST_PATH        / "clang-r450784" / "bin"/ "llvm-bolt"
 BASH_PATH:     Path = Path("/bin/bash")
 
 #

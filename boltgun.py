@@ -24,25 +24,22 @@ from tempfile import TemporaryDirectory
 from typing import Optional, TextIO
 
 from paths import *
-from utils import ResolvedPath, extend_suffix, reify_singleton_patterns, run_and_exit_on_failure
+from utils import (
+    ResolvedPath,
+    extend_suffix,
+    get_prebuilt_binary_paths,
+    reify_singleton_patterns,
+    run_and_exit_on_failure,
+    strip_symbols)
 
 #
 # Constants
 #
 
 BOLT_INSTRUMENTATION_SUBJECTS: list[str] = [
-    "bin/rustc",
     "lib/librustc_driver-*.so",
     "lib/libstd-*.so",
     "lib/libLLVM-*.so",
-]
-
-BOLT_OPTIMIZATION_SUBJECTS: list[str] = [
-    "bin/rustc",
-    "lib/librustc_driver-*.so",
-    "lib/libstd-*.so",
-    "lib/libLLVM-*.so",
-    "lib/rustlib/x86_64-unknown-linux-gnu/lib/libstd-*.so",
 ]
 
 #
@@ -98,11 +95,10 @@ def invoke_bolt(obj_path: Path, bolt_log: TextIO, options: str = "") -> None:
 def process_objects(root: Path, profile_generate: Optional[Path], profile_use: Optional[Path], bolt_log: TextIO) -> None:
     print("Processing objects")
 
-    all_binaries = list((root / "bin").glob("*")) + list((root / "lib").glob("**/*.so"))
     instrumentation_subjects = reify_singleton_patterns(root, BOLT_INSTRUMENTATION_SUBJECTS)
-    optimization_subjects    = reify_singleton_patterns(root, BOLT_OPTIMIZATION_SUBJECTS)
+    optimization_subjects    = get_prebuilt_binary_paths(root, toplevel_only=True)
 
-    for obj_path in all_binaries:
+    for obj_path in get_prebuilt_binary_paths(root):
         if obj_path in optimization_subjects:
             options = ["--peepholes=all"]
             if obj_path in instrumentation_subjects:
@@ -129,14 +125,12 @@ def process_objects(root: Path, profile_generate: Optional[Path], profile_use: O
             invoke_bolt(obj_path, bolt_log, " ".join(options))
 
         else:
-            result =  subprocess.run([OBJCOPY_PATH, "--strip-unneeded", obj_path.as_posix()])
-            if result.returncode != 0:
-                print(f"Failed to strip relocation information from {obj_path.as_posix()}")
+            strip_symbols(obj_path)
 
 
 def pack_archive(srcdir: str, outname: str) -> None:
     print(f"Creating BOLTed archive")
-    shutil.make_archive((DIST_PATH / outname).as_posix(), "gztar", srcdir)
+    shutil.make_archive((DIST_PATH / f"rust-{outname}").as_posix(), "gztar", srcdir)
 
 
 def main() -> None:

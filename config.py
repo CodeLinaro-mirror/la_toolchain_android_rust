@@ -472,7 +472,7 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
 
     # Misc.
 
-    if args.emit_relocs:
+    if args.bolt or args.emit_relocs:
         host_ld_flags.append("-Wl,--emit-relocs")
 
     if args.gc_sections:

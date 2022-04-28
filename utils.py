@@ -218,6 +218,16 @@ def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict: bool =
 
     return paths
 
+
+def get_prebuilt_binary_paths(root: Path, toplevel_only: bool = False) -> list[Path]:
+    binaries = list((root / "lib").glob("*.so" if toplevel_only else "**/*.so"))
+    for path in (root / "bin").glob("*"):
+        file_info = subprocess.run(["file", path], stdout=subprocess.PIPE, text=True).stdout or ""
+        if "ELF" in file_info:
+            binaries.append(path)
+
+    return binaries
+
 #
 # LLVM tool helpers
 #
@@ -233,6 +243,12 @@ def export_profile(indir: Path, outname: str) -> None:
 
 
 def strip_symbols(obj_path: Path, flag: str = "--strip-unneeded") -> None:
-    result = subprocess.run([OBJCOPY_PATH, "--keep-section='.rustc'", flag, obj_path.as_posix()])
+    result = subprocess.run([
+        OBJCOPY_PATH,
+        "--keep-section='.rustc'",
+        # See https://doc.rust-lang.org/rustc/codegen-options/index.html#embed-bitcode
+        "--keep-section='.llvmbc'",
+        flag,
+        obj_path.as_posix()])
     if result.returncode != 0:
         raise RuntimeError(f"Unable to strip symbols from {obj_path.as_posix()}")

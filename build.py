@@ -25,15 +25,18 @@ import source_manager
 import subprocess
 import sys
 
+import boltgun
 import build_platform
 import config
 from paths import *
 from utils import (
     ResolvedPath,
     export_profile,
+    get_prebuilt_binary_paths,
     run_and_exit_on_failure,
     run_quiet,
-    run_quiet_and_exit_on_failure)
+    run_quiet_and_exit_on_failure,
+    strip_symbols)
 
 #
 # Constants
@@ -88,6 +91,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--lto", "-l", default="none", choices=["none", "thin", "full"],
         help="Type of LTO to perform. Valid LTO types: none, thin, full")
+    parser.add_argument(
+        "--bolt", action="store_true",
+        help="Apply BOLT optimizations that don't rely on profiling")
     parser.add_argument(
         "--no-patch-abort",
         help="Don't abort on patch failure. Useful for local development.")
@@ -204,25 +210,23 @@ def main() -> None:
             shutil.copytree(OUT_PATH_RUST_SOURCE / stdlib, OUT_PATH_STDLIB_SRCS / stdlib)
 
     #
-    # Fixup
+    # BOLT and symbol fixup
     #
 
     # The Rust build doesn't have an option to auto-strip binaries, so we do
-    # it here.
-    # We don't attempt to strip .rlibs since it prevents building Rust binaries.
-    # We don't attempt to strip anything under rustlib/ since these include
-    # both debug symbols which we may want to link into user code and Rust
-    # metadata needed at build time.
+    # it here, either directly or through the BOLT routine.  We only strip
+    # symbols from executables and .so objects.
+    if args.bolt:
+        with open(BOLT_LOG_PATH, "w") as bolt_log:
+            boltgun.process_objects(OUT_PATH_PACKAGE, None, None, bolt_log)
+    else:
+        flag = "--strip-debug" if args.emit_relocs else "--strip-unneeded"
+        for obj_path in get_prebuilt_binary_paths(OUT_PATH_PACKAGE):
+            strip_symbols(obj_path, flag)
+
     #
-    # TODO: Investigate the rustc and config.toml stripping mechanisms
-    binaries = [path.as_posix() for path in list(
-            (OUT_PATH_PACKAGE / "lib").glob("*.so")) + [
-            OUT_PATH_PACKAGE / "bin" / "rustc",
-            OUT_PATH_PACKAGE / "bin" / "cargo",
-            OUT_PATH_PACKAGE / "bin" / "rustdoc"]]
-    run_quiet_and_exit_on_failure(
-        ["strip", "-S"] + binaries,
-        "Failed to strip debugging info from generated binaries")
+    # File fixup
+    #
 
     # Install the libc++ library to out/package/lib64/
     if build_platform.is_darwin():
@@ -262,10 +266,7 @@ def main() -> None:
         for p in args.profile_use.glob("*.profdata"):
             shutil.copy(p, DIST_PATH)
 
-    archive_path_rust = DIST_PATH / f"rust-{args.build_name}.tar.gz"
-    run_and_exit_on_failure(f"tar czf {archive_path_rust} .",
-                            "Failed to create distribution archive",
-                            cwd=OUT_PATH_PACKAGE)
+    shutil.make_archive((DIST_PATH / f"rust-{args.build_name}").as_posix(), "gztar", OUT_PATH_PACKAGE)
 
 if __name__ == "__main__":
     main()
