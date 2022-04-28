@@ -106,7 +106,7 @@ def ensure_gcert_valid() -> None:
 
 
 def fetch_build_server_artifact(target: str, build_id: int, build_server_name: str,
-    host_name: Optional[str] = None) -> Path:
+                                host_name: Optional[str] = None) -> Path:
 
     host_name = host_name or build_server_name
     DOWNLOADS_PATH.mkdir(exist_ok=True)

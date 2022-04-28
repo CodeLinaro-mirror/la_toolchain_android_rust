@@ -171,7 +171,7 @@ class GitRepo:
             sys.exit("Failed to compute diff for Git repo {self.path}")
 
 
-    def rm(self, *patterns: Union[str, Path], options="frq") -> None:
+    def rm(self, *patterns: Union[str, Path], options: str ="frq") -> None:
         pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
             f"git rm -{options} {pattern}",
@@ -209,4 +209,4 @@ def profdate_merge(inputs: list[Path], outpath: Path) -> None:
 
 
 def export_profile(indir: Path, outname: str) -> None:
-    profdate_merge(indir.glob("*.profraw"), DIST_PATH / outname)
+    profdate_merge(list(indir.glob("*.profraw")), DIST_PATH / outname)
