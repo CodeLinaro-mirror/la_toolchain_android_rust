@@ -30,6 +30,9 @@ import config
 from paths import *
 from utils import ResolvedPath, export_profile, run_and_exit_on_failure, run_quiet, run_quiet_and_exit_on_failure
 
+#
+# Constants
+#
 
 STDLIB_SOURCES = [
         "library/alloc",
@@ -107,6 +110,9 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     """Runs the configure-build-fixup-dist pipeline."""
+    with open(BUILD_COMMAND_RECORD_PATH, "w") as f:
+        f.write(" ".join(sys.argv))
+
     args = parse_args()
 
     # Add some output padding to make the messages easier to read

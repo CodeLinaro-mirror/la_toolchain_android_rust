@@ -18,7 +18,7 @@ import argparse
 import gzip
 import json
 from pathlib import Path
-from typing import Tuple
+from typing import TextIO, Tuple
 
 from utils import ResolvedPath
 
@@ -31,7 +31,7 @@ TIME_MS_IN_DAY    = TIME_MS_IN_HOUR * 24
 # Helper functions
 #
 
-def open_trace(trace_path: Path) -> str:
+def open_trace(trace_path: Path) -> TextIO:
   if not trace_path.exists():
     print(f"Trace file does not exist: {trace_path.as_posix()}")
     exit(-1)
@@ -42,7 +42,7 @@ def open_trace(trace_path: Path) -> str:
     return open(trace_path, mode="r")
 
 
-def ms_to_hms(milliseconds: int) -> Tuple[int, int, int]:
+def ms_to_hms(milliseconds: int) -> Tuple[int, int, int, float]:
   seconds = (milliseconds /  TIME_MS_IN_SECOND) % 60
   minutes = (milliseconds // TIME_MS_IN_MINUTE) % 60
   hours   = (milliseconds // TIME_MS_IN_HOUR) % 24

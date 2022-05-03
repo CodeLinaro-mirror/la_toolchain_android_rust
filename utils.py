@@ -171,7 +171,7 @@ class GitRepo:
             sys.exit("Failed to compute diff for Git repo {self.path}")
 
 
-    def rm(self, *patterns: Union[str, Path], options="frq") -> None:
+    def rm(self, *patterns: Union[str, Path], options: str ="frq") -> None:
         pattern = " ".join([str(p) for p in patterns])
         run_quiet_and_exit_on_failure(
             f"git rm -{options} {pattern}",
@@ -199,6 +199,26 @@ def replace_file_contents(f: TextIO, new_contents: str) -> None:
     f.flush()
 
 #
+# Path helpers
+#
+
+def extend_suffix(path: Path, new_suffix: str) -> Path:
+    return path.with_suffix(path.suffix + new_suffix)
+
+
+def reify_singleton_patterns(base_dir: Path, patterns: list[str], strict=False) -> list[Path]:
+    paths: list[Path] = []
+    for p in patterns:
+        matches = list(base_dir.glob(p))
+        if len(matches) == 1:
+            paths += matches
+        else:
+            if len(matches) > 1 or strict:
+                raise RuntimeError(f"Unexpected number of matches ({len(matches)}) for pattern: {p}")
+
+    return paths
+
+#
 # LLVM tool helpers
 #
 
@@ -209,4 +229,4 @@ def profdate_merge(inputs: list[Path], outpath: Path) -> None:
 
 
 def export_profile(indir: Path, outname: str) -> None:
-    profdate_merge(indir.glob("*.profraw"), DIST_PATH / outname)
+    profdate_merge(list(indir.glob("*.profraw")), DIST_PATH / outname)

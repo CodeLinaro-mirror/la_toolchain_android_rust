@@ -40,7 +40,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def merge_profiles(indir: Path, input_names: list[str], outpath: Path) -> None:
-    inputs: list[str] = []
+    inputs: list[Path] = []
     for name in input_names:
         inputs += indir.glob(f"**/{name}")
 
