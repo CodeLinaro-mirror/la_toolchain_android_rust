@@ -15,8 +15,6 @@
 # limitations under the License.
 
 import argparse
-from concurrent.futures.process import _ExecutorManagerThread
-from io import BufferedWriter
 from pathlib import Path
 import shutil
 import subprocess
@@ -55,8 +53,11 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument(
         "outname",
-        help="Desired filename for the output archive (w/o extension)"
-    )
+        help="Desired filename for the output archive (w/o extension)")
+
+    parser.add_argument(
+        "--dist", "-d", dest="dist_path", type=ResolvedPath, default=DIST_PATH_DEFAULT,
+        help="Where to place distributable artifacts")
 
     action_group = parser.add_mutually_exclusive_group()
     action_group.add_argument(
@@ -74,6 +75,7 @@ def unpack_archive(archive_path: Path) -> TemporaryDirectory[str]:
     print(f"Unpacking archive into {tmpdir.name}")
     shutil.unpack_archive(archive_path.as_posix(), tmpdir.name)
     return tmpdir
+
 
 def invoke_bolt(obj_path: Path, bolt_log: TextIO, options: str = "") -> None:
     obj_path_bolted = extend_suffix(obj_path, ".bolt")
@@ -128,9 +130,9 @@ def process_objects(root: Path, profile_generate: Optional[Path], profile_use: O
             strip_symbols(obj_path)
 
 
-def pack_archive(srcdir: str, outname: str) -> None:
+def pack_archive(srcdir: str, outpath: Path) -> None:
     print(f"Creating BOLTed archive")
-    shutil.make_archive((DIST_PATH / f"rust-{outname}").as_posix(), "gztar", srcdir)
+    shutil.make_archive(outpath.as_posix(), "gztar", srcdir)
 
 
 def main() -> None:
@@ -139,7 +141,7 @@ def main() -> None:
     with BOLT_LOG_PATH.open("w") as bolt_log:
         with unpack_archive(args.archive_path) as tmpdir:
             process_objects(Path(tmpdir), args.profile_generate, args.profile_use, bolt_log)
-            pack_archive(tmpdir, args.outname)
+            pack_archive(tmpdir, args.dist_path / f"rust-{args.outname}")
 
 
 if __name__ == "__main__":

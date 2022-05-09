@@ -20,28 +20,18 @@ import inspect
 from pathlib import Path
 import re
 import shutil
-import subprocess
 import sys
 from typing import Optional
 
 import build_platform
 from paths import (
-    BASH_PATH,
-    ENVSETUP_PATH,
+    DIST_PATH_DEFAULT,
     OUT_PATH_PROFILES,
-    PROFILE_NAME_LLVM,
-    PROFILE_NAME_LLVM_CS,
-    PROFILE_NAME_RUST,
-    PROFILE_SUBDIR_LLVM,
-    PROFILE_SUBDIR_LLVM_CS,
-    PROFILE_SUBDIR_RUST,
     RUST_PREBUILT_PATH)
-from utils import ResolvedPath, export_profile, run_quiet_and_exit_on_failure
+from utils import TEST_VERSION_NUMBER, ResolvedPath, export_profiles, run_build_command, run_quiet_and_exit_on_failure
 
 RUST_PREBUILT_NAME_PATTERN = re.compile("rust-(?!profraw)(\S*)\.tar\.gz")
 RUST_PROFILES_NAME_PATTERN = re.compile("rust-profraw-(\S*)\.tar\.gz")
-
-TEST_VERSION_NUMBER: str = "9.99.9"
 
 #
 # Helper functions
@@ -76,6 +66,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--target", type=str, required=True,
         help="Device target to build for")
+    parser.add_argument(
+        "--dist", "-d", dest="dist_path", type=ResolvedPath, default=DIST_PATH_DEFAULT,
+        help="Where to place distributable artifacts")
 
     parser.add_argument(
         "--image", "-i", action="store_true",
@@ -113,43 +106,30 @@ def prepare_prebuilts(prebuilt_path: Path) -> None:
         cwd=target_and_version_path)
 
 
-def run_build_command(target: str, command: str) -> int:
-    prefixed_command = (
-        f". {ENVSETUP_PATH} && lunch {target} && " +
-        f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}")
-    bashed_command = [BASH_PATH, '-c', prefixed_command]
-
-    return subprocess.run(bashed_command, stderr=subprocess.STDOUT).returncode
-
-
 def build_rust_artifacts(target: str) -> int:
     # Run 'm rust' for build target
     print("Building Rust targets")
-    return run_build_command(target, "m rust")
+    return run_build_command("m rust", target)
 
 
 def build_image(target: str) -> int:
     # Run 'm' for build target
     print("Building Android image")
-    return run_build_command(target, "m")
+    return run_build_command("m", target)
 
 
-def export_profiles(profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> None:
-    if profile_generate != None:
-        export_profile(profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
-        if (profile_generate / PROFILE_SUBDIR_LLVM).exists():
-            export_profile(profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
-
-    elif cs_profile_generate != None:
-        export_profile(cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
+def run_test(prebuilt_path: Path, target: str, dist_path: Path, profile_generate: Optional[Path], cs_profile_generate: Optional[Path]) -> int:
+    prepare_prebuilts(prebuilt_path)
+    retcode = build_rust_artifacts(target)
+    export_profiles(profile_generate or cs_profile_generate, dist_path)
+    return retcode
 
 
 def main() -> None:
     args = parse_args()
 
-    prepare_prebuilts(args.prebuilt_path)
-    retcode = build_rust_artifacts(args.target)
-    export_profiles(args.profile_generate, args.cs_profile_generate)
+    retcode = run_test(
+        args.prebuilt_path, args.target, args.dist_path, args.profile_generate, args.cs_profile_generate)
 
     if retcode == 0 and args.image:
         retcode = build_image(args.target)

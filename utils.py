@@ -22,9 +22,19 @@ import shlex
 import shutil
 import sys
 import subprocess
-from typing import Any, TextIO, Union, cast
+from typing import Any, Optional, TextIO, Union, cast
 
-from paths import DIST_PATH, OBJCOPY_PATH, PROFDATA_PATH
+from paths import (
+    BASH_PATH,
+    ENVSETUP_PATH,
+    OBJCOPY_PATH,
+    PROFILE_NAME_LLVM,
+    PROFILE_NAME_LLVM_CS,
+    PROFILE_NAME_RUST,
+    PROFILE_SUBDIR_LLVM,
+    PROFILE_SUBDIR_LLVM_CS,
+    PROFILE_SUBDIR_RUST,
+    PROFDATA_PATH)
 
 GIT_REFERENCE_BRANCH = "aosp/master"
 
@@ -32,6 +42,8 @@ SUBPROCESS_RUN_QUIET_DEFAULTS: dict[str, object] = {
     'stdout': subprocess.DEVNULL,
     'stderr': subprocess.DEVNULL,
 }
+
+TEST_VERSION_NUMBER: str = "9.99.9"
 
 VERSION_PATTERN = re.compile("\d+\.\d+\.\d+(p\d+)?")
 
@@ -86,6 +98,20 @@ def run_quiet_and_exit_on_failure(command: Union[str, list[Any]], error_message:
 
 def run_quiet(command: Union[str, list[Any]], *args: Any, **kwargs: Any) -> int:
     return subprocess.run(prepare_command(command), *args, **cast(Any,(kwargs | SUBPROCESS_RUN_QUIET_DEFAULTS))).returncode
+
+#
+# Android helpers
+#
+
+def run_build_command(command: str, target: str = "") -> int:
+    prefixed_command = f". {ENVSETUP_PATH} && "
+    if target:
+        prefixed_command += f"lunch {target} && "
+
+    prefixed_command += f"RUST_PREBUILTS_VERSION={TEST_VERSION_NUMBER} {command}"
+    bashed_command = [BASH_PATH.as_posix(), '-c', prefixed_command]
+
+    return subprocess.run(bashed_command, stderr=subprocess.STDOUT).returncode
 
 #
 # Git
@@ -202,6 +228,11 @@ def replace_file_contents(f: TextIO, new_contents: str) -> None:
 # Path helpers
 #
 
+def copy_profdata(indir: Path, outdir: Path) -> None:
+    for p in indir.glob("*.profdata"):
+        shutil.copy(p, outdir)
+
+
 def extend_suffix(path: Path, new_suffix: str) -> Path:
     return path.with_suffix(path.suffix + new_suffix)
 
@@ -238,8 +269,23 @@ def profdata_merge(inputs: list[Path], outpath: Path) -> None:
         f"Failed to produce merged profile {outpath}")
 
 
-def export_profile(indir: Path, outname: str) -> None:
-    profdata_merge(list(indir.glob("*.profraw")), DIST_PATH / outname)
+def export_profile(indir: Path, outpath: Path) -> None:
+    profdata_merge(list(indir.glob("*.profraw")), outpath)
+
+
+def export_profiles(src_path: Optional[Path], dist_path: Path) -> None:
+    if src_path != None:
+        # Needed by mypy
+        assert src_path is not None
+
+        if (src_path / PROFILE_SUBDIR_LLVM).exists():
+            export_profile(src_path / PROFILE_SUBDIR_LLVM, dist_path / PROFILE_NAME_LLVM)
+
+        if (src_path / PROFILE_SUBDIR_LLVM_CS).exists():
+            export_profile(src_path / PROFILE_SUBDIR_LLVM_CS, dist_path / PROFILE_NAME_LLVM_CS)
+
+        if (src_path / PROFILE_SUBDIR_RUST).exists():
+            export_profile(src_path / PROFILE_SUBDIR_RUST, dist_path / PROFILE_NAME_RUST)
 
 
 def strip_symbols(obj_path: Path, flag: str = "--strip-unneeded") -> None:

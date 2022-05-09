@@ -32,11 +32,11 @@ ENVSETUP_PATH: Path = WORKSPACE_PATH / "build" / "envsetup.sh"
 
 # We take DIST_DIR through an environment variable rather than an
 # argument to match the interface for traditional Android builds.
-DIST_PATH: Path = (
+DIST_PATH_DEFAULT: Path = (
     Path(os.environ["DIST_DIR"]).resolve() if "DIST_DIR" in os.environ else
     (WORKSPACE_PATH / "dist"))
 
-BUILD_COMMAND_RECORD_PATH: Path = DIST_PATH / "rust_build_command.sh"
+BUILD_COMMAND_RECORD_NAME = "rust_build_command.sh"
 
 PATCHES_PATH:   Path = TOOLCHAIN_PATH / "patches"
 TEMPLATES_PATH: Path = TOOLCHAIN_PATH / "templates"

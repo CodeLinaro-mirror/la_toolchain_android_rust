@@ -20,7 +20,7 @@
 import argparse
 from pathlib import Path
 
-from paths import DIST_PATH, PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS, PROFILE_NAME_RUST
+from paths import DIST_PATH_DEFAULT, PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS, PROFILE_NAME_RUST
 from utils import ResolvedPath, profdata_merge
 
 #
@@ -30,31 +30,35 @@ from utils import ResolvedPath, profdata_merge
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser("Merge profiles from multiple Rust toolchain build targets")
     parser.add_argument(
-        "indir", type=ResolvedPath,
+        "indirs", type=ResolvedPath, nargs="+",
         help="Root directory for finding llvm.profdata, llvm-cs.profdata, and rust.profdata files")
     parser.add_argument(
-        "--outdir", "-o", type=Path, default=DIST_PATH,
-        help="Where to write the merged profiles")
+        "--dist", "-d", dest="dist_path", type=ResolvedPath, default=DIST_PATH_DEFAULT,
+        help="Where to place distributable artifacts")
 
     return parser.parse_args()
 
 
-def merge_profiles(indir: Path, input_names: list[str], outpath: Path) -> None:
+def merge_profiles(indirs: list[Path], input_names: list[str], outpath: Path) -> None:
     inputs: list[Path] = []
-    for name in input_names:
-        inputs += indir.glob(f"**/{name}")
+    for indir in indirs:
+        for name in input_names:
+            inputs += indir.glob(f"**/{name}")
 
     if inputs:
         profdata_merge(inputs, outpath)
 
 
+def merge_project_profiles(indirs: list[Path], outdir: Path) -> None:
+    merge_profiles(indirs, [PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS], outdir / PROFILE_NAME_LLVM)
+    merge_profiles(indirs, [PROFILE_NAME_RUST], outdir / PROFILE_NAME_RUST)
+
+
 def main() -> None:
     args = parse_args()
 
-    args.outdir.mkdir(exist_ok=True)
-
-    merge_profiles(args.indir, [PROFILE_NAME_LLVM, PROFILE_NAME_LLVM_CS], args.outdir / PROFILE_NAME_LLVM)
-    merge_profiles(args.indir, [PROFILE_NAME_RUST], args.outdir / PROFILE_NAME_RUST)
+    args.dist_path.mkdir(exist_ok=True)
+    merge_project_profiles(args.indirs, args.dist_path)
 
 
 if __name__ == "__main__":

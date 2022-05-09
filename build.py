@@ -18,8 +18,6 @@
 
 import argparse
 import os
-import os.path
-from pathlib import Path
 import shutil
 import source_manager
 import subprocess
@@ -31,7 +29,7 @@ import config
 from paths import *
 from utils import (
     ResolvedPath,
-    export_profile,
+    export_profiles,
     get_prebuilt_binary_paths,
     run_and_exit_on_failure,
     run_quiet,
@@ -82,21 +80,21 @@ LLVM_BUILD_PATHS_OF_INTEREST: list[str] = [
 # Program logic
 #
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv) -> argparse.Namespace:
     """Parses arguments and returns the parsed structure."""
     parser = argparse.ArgumentParser("Build the Rust Toolchain")
     parser.add_argument(
         "--build-name", "-b", default="dev",
         help="Release name for the dist result")
     parser.add_argument(
-        "--lto", "-l", default="none", choices=["none", "thin", "full"],
-        help="Type of LTO to perform. Valid LTO types: none, thin, full")
-    parser.add_argument(
-        "--bolt", action="store_true",
-        help="Apply BOLT optimizations that don't rely on profiling")
+        "--dist", "-d", dest="dist_path", type=ResolvedPath, default=DIST_PATH_DEFAULT,
+        help="Where to place distributable artifacts")
     parser.add_argument(
         "--no-patch-abort",
         help="Don't abort on patch failure. Useful for local development.")
+    parser.add_argument(
+        "--stage", "-s", type=int, choices=[1,2,3],
+        help="Target Rust boostrap stage")
 
     pgo_group = parser.add_mutually_exclusive_group()
     pgo_group.add_argument(
@@ -111,6 +109,12 @@ def parse_args() -> argparse.Namespace:
         "--cs-profile-generate", type=ResolvedPath, nargs="?", const=OUT_PATH_PROFILES,
         help="Instrument the LLVM libraries to generate context-sensitive profiles")
     parser.add_argument(
+        "--lto", "-l", default="none", choices=["none", "thin", "full"],
+        help="Type of LTO to perform. Valid LTO types: none, thin, full")
+    parser.add_argument(
+        "--bolt", action="store_true",
+        help="Apply BOLT optimizations that don't rely on profiling")
+    parser.add_argument(
         "--emit-relocs", action="store_true",
         help="Emit relocation information")
     parser.add_argument(
@@ -120,20 +124,23 @@ def parse_args() -> argparse.Namespace:
         "--llvm-linkage", default="static", choices=["static", "shared"],
         help="Specify if LLVM should be built as a static or shared library")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if build_platform.is_darwin() and (args.profile_generate != None or args.profile_use != None):
         sys.exit("PGO is not supported on the Darwin platform")
 
+    if args.cs_profile_generate != None and args.llvm_linkage == "static" and args.lto == None:
+        sys.exit("Context-sensitive PGO with LLVM static linkage requires LTO to be enabled")
+
     return args
 
 
-def main() -> None:
+def main(argv=None) -> None:
     """Runs the configure-build-fixup-dist pipeline."""
-    with open(BUILD_COMMAND_RECORD_PATH, "w") as f:
-        f.write(" ".join(sys.argv))
 
-    args = parse_args()
+    args = parse_args(argv)
+    with open(args.dist_path / BUILD_COMMAND_RECORD_NAME, "w") as f:
+        f.write(" ".join(argv or sys.argv))
 
     # Add some output padding to make the messages easier to read
     print()
@@ -146,7 +153,7 @@ def main() -> None:
     OUT_PATH_PACKAGE.mkdir(exist_ok=True)
     OUT_PATH_WRAPPERS.mkdir(exist_ok=True)
 
-    DIST_PATH.mkdir(exist_ok=True)
+    args.dist_path.mkdir(exist_ok=True)
 
     #
     # Setup source files
@@ -188,7 +195,7 @@ def main() -> None:
 
     # We only need to perform stage 3 of the bootstrap process when we are
     # collecting profile data.
-    bootstrap_stage = "3" if args.profile_generate or args.cs_profile_generate else "2"
+    bootstrap_stage = args.stage or ("3" if args.profile_generate or args.cs_profile_generate else "2")
 
     result = subprocess.run(
         [PYTHON_PATH, OUT_PATH_RUST_SOURCE / "x.py", "--stage", bootstrap_stage, "install"],
@@ -196,7 +203,7 @@ def main() -> None:
 
     if result.returncode != 0:
         print(f"Build stage failed with error {result.returncode}")
-        tarball_path = DIST_PATH / "llvm-build-config.tar.gz"
+        tarball_path = args.dist_path / "llvm-build-config.tar.gz"
         run_quiet_and_exit_on_failure(
             ["tar", "czf", tarball_path.as_posix()] + LLVM_BUILD_PATHS_OF_INTEREST,
             "Could not generate logs/artifacts archive upon build failure",
@@ -251,22 +258,14 @@ def main() -> None:
 
     print("Creating artifacts")
 
-    if args.profile_generate:
-        export_profile(args.profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
-        if args.llvm_linkage == "shared":
-            export_profile(args.profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
+    export_profiles(args.profile_generate or args.cs_profile_generate, args.dist_path)
 
-    elif args.cs_profile_generate:
-        if args.llvm_linkage == "shared":
-            export_profile(args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
-        else: # args.llvm_linkage == "static"
-            export_profile(args.cs_profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
-
-    if args.profile_use and args.profile_use != DIST_PATH:
+    if args.profile_use and args.profile_use != args.dist_path:
         for p in args.profile_use.glob("*.profdata"):
-            shutil.copy(p, DIST_PATH)
+            shutil.copy(p, args.dist_path)
 
-    shutil.make_archive((DIST_PATH / f"rust-{args.build_name}").as_posix(), "gztar", OUT_PATH_PACKAGE)
+    shutil.make_archive((args.dist_path / f"rust-{args.build_name}").as_posix(), "gztar", OUT_PATH_PACKAGE)
+
 
 if __name__ == "__main__":
     main()
