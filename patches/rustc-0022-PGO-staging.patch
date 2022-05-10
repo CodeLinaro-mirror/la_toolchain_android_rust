@@ -1,38 +1,47 @@
-From 028f29032689666625ba6b359f2dff78a46131f3 Mon Sep 17 00:00:00 2001
+From 8756f6460e1b823717e594456d0793dde556fa82 Mon Sep 17 00:00:00 2001
 From: Chris Wailes <chriswailes@google.com>
-Date: Tue, 15 Feb 2022 12:31:42 -0800
-Subject: [PATCH] Change PGO staging
+Date: Tue, 10 May 2022 14:59:23 -0700
+Subject: [PATCH] [PATCH] Adjust PGO staging logic
 
-Compile with instrumentation or PGO on stages 2 and 3 instead of just on
+This CL causes the bootstrap system to use provided PGO profiles at all
+stages to add PGO instrumentation at stages 2 and 3 instead of only at
 stage 1.
 
-Change-Id: I9e3b42bc96ed14f87fe51bbb99b4a36a25ce94f3
+Change-Id: Ic3319a1d860f7a1a9a1a49659493d24c26cc28bb
 ---
- src/bootstrap/compile.rs | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ src/bootstrap/compile.rs | 12 ++++--------
+ 1 file changed, 4 insertions(+), 8 deletions(-)
 
 diff --git a/src/bootstrap/compile.rs b/src/bootstrap/compile.rs
-index 007ca9f7f5..2bd2355660 100644
+index f05d1dcf4f..e88e25c9e9 100644
 --- a/src/bootstrap/compile.rs
 +++ b/src/bootstrap/compile.rs
-@@ -594,7 +594,7 @@ impl Step for Rustc {
+@@ -597,7 +597,7 @@ impl Step for Rustc {
          }
 
          let is_collecting = if let Some(path) = &builder.config.rust_profile_generate {
 -            if compiler.stage == 1 {
-+            if compiler.stage >= 0 {
++            if !builder.config.llvm_link_shared || compiler.stage >= 2 {
                  cargo.rustflag(&format!("-Cprofile-generate={}", path));
                  // Apparently necessary to avoid overflowing the counters during
                  // a Cargo build profile
-@@ -604,7 +604,7 @@ impl Step for Rustc {
+@@ -607,13 +607,9 @@ impl Step for Rustc {
                  false
              }
          } else if let Some(path) = &builder.config.rust_profile_use {
 -            if compiler.stage == 1 {
-+            if compiler.stage >= 0 {
-                 cargo.rustflag(&format!("-Cprofile-use={}", path));
-                 cargo.rustflag("-Cllvm-args=-pgo-warn-missing-function");
-                 true
+-                cargo.rustflag(&format!("-Cprofile-use={}", path));
+-                cargo.rustflag("-Cllvm-args=-pgo-warn-missing-function");
+-                true
+-            } else {
+-                false
+-            }
++            cargo.rustflag(&format!("-Cprofile-use={}", path));
++            cargo.rustflag("-Cllvm-args=-pgo-warn-missing-function");
++            true
+         } else {
+             false
+         };
 --
-2.35.1.265.g69c8d7142f-goog
+2.36.0.550.gb090851708-goog
 
