@@ -157,6 +157,9 @@ def main() -> None:
     env = dict(os.environ)
     config.configure(args, env)
 
+    # Flush stdout to ensure correct output ordering in the logs
+    sys.stdout.flush()
+
     # Trigger bootstrap to trigger vendoring
     #
     # Call is not checked because this is *expected* to fail - there isn't a
@@ -250,7 +253,10 @@ def main() -> None:
             export_profile(args.profile_generate / PROFILE_SUBDIR_LLVM, PROFILE_NAME_LLVM)
 
     elif args.cs_profile_generate:
-        export_profile(args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
+        if args.llvm_linkage == "shared":
+            export_profile(args.cs_profile_generate / PROFILE_SUBDIR_LLVM_CS, PROFILE_NAME_LLVM_CS)
+        else: # args.llvm_linkage == "static"
+            export_profile(args.cs_profile_generate / PROFILE_SUBDIR_RUST, PROFILE_NAME_RUST)
 
     if args.profile_use and args.profile_use != DIST_PATH:
         for p in args.profile_use.glob("*.profdata"):

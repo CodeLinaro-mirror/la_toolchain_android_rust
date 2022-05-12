@@ -24,7 +24,7 @@ import sys
 import subprocess
 from typing import Any, TextIO, Union, cast
 
-from paths import DIST_PATH, PROFDATA_PATH
+from paths import DIST_PATH, OBJCOPY_PATH, PROFDATA_PATH
 
 GIT_REFERENCE_BRANCH = "aosp/master"
 

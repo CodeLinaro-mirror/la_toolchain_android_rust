@@ -253,6 +253,18 @@ for arch, sysroot in HOST_SYSROOTS.items():
 TARGET_CC_FLAGS:  dict[str, list[str]] = {}
 TARGET_CXX_FLAGS: dict[str, list[str]] = {}
 
+HOST_LINUX_LD_FLAGS: list[str] = [
+    LD_FLAG_USE_LLD,
+    "--rtlib=compiler-rt",
+    # Reply on rust.llvm-libunwind="in-tree" in config.toml to link host
+    # binaries against the in-tree built LLVM libunwind.  The version of
+    # libunwind in our prebuilts is for devices only.
+    #"-lunwind",
+    f"-B{GCC_LIBGCC_PATH}",
+    f"-L{GCC_LIBGCC_PATH}",
+    f"-L{GCC_LIB_PATH}",
+    f"-L{LLVM_CXX_RUNTIME_PATH}",
+]
 TARGET_LD_FLAGS: dict[str, list[str]] = {
     # When performing LTO, the LLVM IR generator doesn't know about these
     # target specific symbols. By telling the linker about them ahead of time
@@ -263,20 +275,8 @@ TARGET_LD_FLAGS: dict[str, list[str]] = {
         "-u __aeabi_idiv0",
     ],
 
-    "x86_64-unknown-linux-gnu": [
-        LD_FLAG_USE_LLD,
-        f"-B{GCC_LIBGCC_PATH}",
-        f"-L{GCC_LIBGCC_PATH}",
-        f"-L{GCC_LIB_PATH}",
-        f"-L{LLVM_CXX_RUNTIME_PATH}",
-    ],
-    "i686-unknown-linux-gnu": [
-        LD_FLAG_USE_LLD,
-        f"-B{GCC_LIBGCC_PATH}",
-        f"-L{GCC_LIBGCC_PATH}",
-        f"-L{GCC_LIB_PATH}",
-        f"-L{LLVM_CXX_RUNTIME_PATH}",
-    ],
+    "x86_64-unknown-linux-gnu": HOST_LINUX_LD_FLAGS,
+    "i686-unknown-linux-gnu":   HOST_LINUX_LD_FLAGS,
 
     "x86_64-apple-darwin": [
         f"-L{LLVM_CXX_RUNTIME_PATH}",
@@ -335,8 +335,6 @@ def configure(args: argparse.Namespace, env: dict[str, str]) -> None:
     ]
     host_ld_flags     = [
         LD_FLAG_PIC,
-        "--rtlib=compiler-rt",
-        "-lunwind",
         f"-Wl,-rpath,{build_platform.rpath_origin()}/../lib64",
     ]
 
