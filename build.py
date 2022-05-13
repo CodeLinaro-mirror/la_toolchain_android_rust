@@ -139,6 +139,7 @@ def main(argv=None) -> None:
     """Runs the configure-build-fixup-dist pipeline."""
 
     args = parse_args(argv)
+    args.dist_path.mkdir(exist_ok=True)
     with open(args.dist_path / BUILD_COMMAND_RECORD_NAME, "w") as f:
         f.write(" ".join(argv or sys.argv))
 

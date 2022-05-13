@@ -24,9 +24,10 @@ CLANG_NAME:          str = f"clang-{CLANG_REVISION}"
 GLIBC_VERSION:       str = "2.17-4.8"
 GLIBC_SUBVERSION:    str = "4.8.3"
 
-TOOLCHAIN_PATH:   Path = Path(__file__).parent.resolve()
-WORKSPACE_PATH:   Path = (TOOLCHAIN_PATH / ".." / "..").resolve()
-RUST_SOURCE_PATH: Path = (TOOLCHAIN_PATH / ".." / "rustc").resolve()
+TOOLCHAIN_PATH:           Path = Path(__file__).parent.resolve()
+TOOLCHAIN_ARTIFACTS_PATH: Path = TOOLCHAIN_PATH / "artifacts"
+WORKSPACE_PATH:           Path = (TOOLCHAIN_PATH / ".." / "..").resolve()
+RUST_SOURCE_PATH:         Path = (TOOLCHAIN_PATH / ".." / "rustc").resolve()
 
 ENVSETUP_PATH: Path = WORKSPACE_PATH / "build" / "envsetup.sh"
 
@@ -56,7 +57,18 @@ PROFILE_SUBDIR_RUST    = Path("rust")
 PROFILE_NAME_LLVM      = "llvm.profdata"
 PROFILE_NAME_LLVM_CS   = "llvm-cs.profdata"
 PROFILE_NAME_RUST      = "rust.profdata"
-PROFILE_NAME_MERGED    = "rust+llvm.profdata"
+
+PROFILE_SUBDIRS = [
+    PROFILE_SUBDIR_LLVM,
+    PROFILE_SUBDIR_LLVM_CS,
+    PROFILE_SUBDIR_RUST
+]
+
+PROFILE_NAMES = [
+    PROFILE_NAME_LLVM,
+    PROFILE_NAME_LLVM_CS,
+    PROFILE_NAME_RUST
+]
 
 BOLT_LOG_PATH: Path =  WORKSPACE_PATH / "out" / "bolt.rust.log"
 
@@ -111,4 +123,5 @@ BASH_PATH:     Path = Path("/bin/bash")
 # Paths to binfs executables
 #
 
-FETCH_ARTIFACT_PATH: Path = Path("/google/data/ro/projects/android/fetch_artifact")
+ANDROID_BUILD_CLI_PATH: Path = Path("/google/data/ro/projects/android/ab")
+FETCH_ARTIFACT_PATH:    Path = Path("/google/data/ro/projects/android/fetch_artifact")

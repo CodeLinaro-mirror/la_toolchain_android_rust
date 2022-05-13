@@ -71,19 +71,19 @@ def parse_args() -> argparse.Namespace:
 
     exclusive_group = parser.add_mutually_exclusive_group()
     exclusive_group.add_argument(
-        "-b", "--beta", dest="build_type", action="store_const",
+        "--beta", "-b", dest="build_type", action="store_const",
         default='', const='beta', help="fetch the beta archive")
     exclusive_group.add_argument(
-        "-n", "--nightly", dest="build_type", action="store_const",
+        "--nightly", "-n", dest="build_type", action="store_const",
         default='', const='nightly', help="fetch the nightly archive")
     parser.add_argument(
         "--branch", metavar="NAME", dest="branch",
         help="Branch name to use for this prebuilt update")
     parser.add_argument(
-        "-i", "--issue", "--bug", metavar="NUMBER", dest="issue",
+        "--issue", "-i", "--bug", metavar="NUMBER", dest="issue",
         help="Issue number to include in commit message")
     parser.add_argument(
-        "-o", "--overwrite", dest="overwrite", action="store_true",
+        "--overwrite", "-o", dest="overwrite", action="store_true",
         help="Overwrite the target branch if it exists")
 
     parser.add_argument("rust_version", action="store", type=utils.version_string_type)

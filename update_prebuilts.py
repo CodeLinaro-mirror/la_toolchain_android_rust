@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Fetch prebuilt archives and prepare a prebuilt commit"""
+"""Fetch prebuilt artifacts and prepare a prebuilt commit"""
 
 import argparse
 import inspect
@@ -23,15 +23,20 @@ from pathlib import Path
 import os
 import re
 import shutil
+import subprocess
 import sys
 from typing import KeysView, Optional, Union
 
-import build_platform
 from paths import (
+    ANDROID_BUILD_CLI_PATH,
+    BUILD_COMMAND_RECORD_NAME,
     DOWNLOADS_PATH,
     FETCH_ARTIFACT_PATH,
+    PROFILE_NAMES,
     RUST_PREBUILT_PATH,
-    SOONG_PATH
+    SOONG_PATH,
+    TOOLCHAIN_ARTIFACTS_PATH,
+    TOOLCHAIN_PATH
 )
 from utils import (
     GitRepo,
@@ -48,23 +53,28 @@ ANDROID_BP: str = "Android.bp"
 
 BRANCH_NAME_TEMPLATE: str = "rust-update-prebuilts-%s"
 
-BUILD_SERVER_ARCHIVE_PATTERN: str = "rust-%s.tar.gz"
-BUILD_SERVER_TARGET_DEFAULT:  str = "linux"
-BUILD_SERVER_TARGET_MAP: dict[str, str] = {
-  "darwin-x86": "darwin_mac",
-  "linux-x86":  "linux"}
+BUILD_SERVER_BRANCH: str = "aosp-rust-toolchain"
+BUILD_SERVER_ARCHIVE_FORMAT_PATTERN: str = "rust-%s.tar.gz"
 
 HOST_ARCHIVE_PATTERN: str = "rust-%s-%s.tar.gz"
 HOST_TARGET_DEFAULT:  str = "linux-x86"
 
-RLIB_NAME_PATTERN: re.Pattern[str] = re.compile("libstd-([a-zA-z\d]+)\.rlib")
+TOOLCHAIN_PATHS_SEARCH_PATTERN = 'RUST_VERSION_STAGE0:(\s+)str(\s+)=(\s)"[^"]+"'
+TOOLCHAIN_PATHS_UPDATE_PATTERN = 'RUST_VERSION_STAGE0:\1str\2=\3"%s"'
 
-RUST_PREBUILT_REPO: GitRepo = GitRepo(RUST_PREBUILT_PATH)
-SOONG_REPO: GitRepo = GitRepo(SOONG_PATH)
+RUST_PREBUILT_REPO = GitRepo(RUST_PREBUILT_PATH)
+SOONG_REPO         = GitRepo(SOONG_PATH)
+TOOLCHAIN_REPO     = GitRepo(TOOLCHAIN_PATH)
 
 #
 # String operations
 #
+
+def add_extension_prefix(filename: str, extension_prefix: str) -> str:
+    comps = filename.split(".", 1)
+    comps.insert(1, extension_prefix)
+    return ".".join(comps)
+
 
 def artifact_ident_type(arg: str) -> Union[int, Path]:
     try:
@@ -73,19 +83,12 @@ def artifact_ident_type(arg: str) -> Union[int, Path]:
         return Path(arg).resolve()
 
 
-def make_branch_name(version: str, is_local: bool) -> str:
-    branch_name = BRANCH_NAME_TEMPLATE % version
-    if is_local:
-        branch_name += "-local"
-    return branch_name
+def make_branch_name(version: str) -> str:
+    return BRANCH_NAME_TEMPLATE % version
 
 
-def make_commit_message(version: str, prebuilt_ident: Union[int, Path], issue: Optional[int]) -> str:
-    commit_message: str = f"rustc-{version}"
-    if isinstance(prebuilt_ident, int):
-        commit_message += f" Build {prebuilt_ident}\n"
-    else:
-        commit_message += " Local Build\n"
+def make_commit_message(version: str, bid: int, issue: Optional[int]) -> str:
+    commit_message: str = f"rustc-{version} Build {bid}\n"
 
     if issue is not None:
         commit_message += f"\nBug: https://issuetracker.google.com/issues/{issue}"
@@ -105,25 +108,55 @@ def ensure_gcert_valid() -> None:
         run_and_exit_on_failure("gcert", "Failed to obtain authentication credentials")
 
 
-def fetch_build_server_artifact(target: str, build_id: int, build_server_name: str,
-                                host_name: Optional[str] = None) -> Path:
+def fetch_build_server_artifact(target: str, build_id: int, build_server_pattern: str,
+                                host_name: str, strict: bool = False) -> Path:
 
-    host_name = host_name or build_server_name
-    DOWNLOADS_PATH.mkdir(exist_ok=True)
     dest: Path = DOWNLOADS_PATH / host_name
 
     if dest.exists():
-        print(f"Artifact {build_server_name} for {target} has already been downloaded as {host_name}")
+        print(f"Artifact {build_server_pattern} for {target} has already been downloaded as {host_name}")
 
     else:
         ensure_gcert_valid()
 
-        print(f"Downloading build server artifact {build_server_name} for target {target}")
-        run_and_exit_on_failure(
-            f"{FETCH_ARTIFACT_PATH} --target={target} --bid={build_id} {build_server_name} {dest}",
-            f"Failed to fetch build server artifact {build_server_name} for target {target}")
+        print(f"Downloading build server artifact {build_server_pattern} for target {target}")
+
+        build_flag = f"--bid={build_id}" if build_id else "--latest"
+        result = subprocess.run([
+            FETCH_ARTIFACT_PATH,
+            f"--branch={BUILD_SERVER_BRANCH}",
+            f"--target={target}",
+            build_flag,
+            build_server_pattern,
+            dest])
+
+        if strict and result.returncode != 0:
+            sys.exit(f"Failed to fetch build server artifact {build_server_pattern} for target {target}")
 
     return dest
+
+
+def get_lkgb() -> int:
+    ensure_gcert_valid()
+
+    result = subprocess.run([
+        ANDROID_BUILD_CLI_PATH,
+        "lkgb",
+        f"--branch={BUILD_SERVER_BRANCH}",
+        "--raw",
+        "--custom_raw_format='{o[buildId]}'"
+    ],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.DEVNULL)
+
+    if result.returncode == 0:
+        bids = set(str(result.stdout).split("\n"))
+        if len(bids) == 1:
+            return int(list(bids)[0])
+        else:
+            sys.exit("At least one target is broken; a fully green build is required to update prebuilts")
+    else:
+        sys.exit("Unable to fetch LKGB build ID")
 
 #
 # Program logic
@@ -131,57 +164,79 @@ def fetch_build_server_artifact(target: str, build_id: int, build_server_name: s
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=inspect.getdoc(sys.modules[__name__]))
-
-    parser.add_argument(
-        "prebuilt_ident", metavar="IDENT", type=artifact_ident_type,
-        help="Build number to pull from the server or path to archive")
     parser.add_argument(
         "version", metavar="VERSION", type=version_string_type,
         help="Rust version string (e.g. 1.55.0)")
 
     parser.add_argument(
-        "-b", "--branch", metavar="NAME", dest="branch",
+        "--bid", "-b", metavar="BUILD_ID", type=int,
+        help="Build ID to use when fetching artifacts from the build servers")
+    parser.add_argument(
+        "--download-only", "-d", action="store_true",
+        help="Stop after downloading the artifacts")
+    parser.add_argument(
+        "--chained", "-c", action="store_true",
+        help="Fetch the profile optimized version of the Linux perbuilts")
+    parser.add_argument(
+        "--branch", metavar="NAME", dest="branch",
         help="Branch name to use for this prebuilt update")
     parser.add_argument(
-        "-i", "--issue", "--bug", metavar="NUMBER", dest="issue", type=int,
+        "--issue", "--bug", "-i", metavar="NUMBER", dest="issue", type=int,
         help="Issue number to include in commit message")
     parser.add_argument(
-        "-o", "--overwrite", dest="overwrite", action="store_true",
+        "--overwrite", "-o", dest="overwrite", action="store_true",
         help="Overwrite the target branch if it exists")
 
     return parser.parse_args()
 
 
-def prepare_prebuilt_artifact(ident: Union[int, Path]) -> tuple[dict[str, Path], Optional[Path]]:
+def fetch_prebuilt_artifacts(bid: int, chained: bool) -> tuple[dict[str, Path], Path, list[Path]]:
     """
-    Returns a dictionary that maps target names to prebuilt artifact paths.  If
-    the artifacts were downloaded from a build server the manifest for the
-    build is returned as the second element of the tuple.
+    Returns a dictionary that maps target names to prebuilt artifact paths, the
+    manifest used by the build server, and a list of other build server
+    artifacts.
     """
 
-    if isinstance(ident, Path):
-        if ident.exists():
-            return ({build_platform.prebuilt(): ident}, None)
-        else:
-            sys.exit(f"Provided prebuilt archive does not exist: {ident.as_posix()}")
-    else:
-        artifact_path_map: dict[str, Path] = {}
+    DOWNLOADS_PATH.mkdir(exist_ok=True)
 
-        manifest_name:       str = f"manifest_{ident}.xml"
-        bs_archive_name:     str = BUILD_SERVER_ARCHIVE_PATTERN % ident
-        host_manifest_path: Path = fetch_build_server_artifact(BUILD_SERVER_TARGET_DEFAULT, ident, manifest_name)
+    prebuilt_path_map: dict[str, Path] = {}
+    other_artifacts:   list[Path]      = []
 
-        for target, bs_target in BUILD_SERVER_TARGET_MAP.items():
-            artifact_path_map[target] = fetch_build_server_artifact(
-                bs_target, ident, bs_archive_name, HOST_ARCHIVE_PATTERN % (ident, target))
+    bs_target_default = "rustc-chained" if chained else "linux"
+    bs_archive_name   = BUILD_SERVER_ARCHIVE_FORMAT_PATTERN % bid
 
-        # Print a newline to make the fetch/cache usage visually distinct
-        print()
-        return (artifact_path_map, host_manifest_path)
+    build_server_target_map: dict[str, str] = {
+        "darwin-x86": "darwin_mac",
+        "linux-x86":  bs_target_default}
+
+    # Fetch the host-specific prebuilt archives and build commands
+    for host_target, bs_target in build_server_target_map.items():
+        prebuilt_path_map[host_target] = fetch_build_server_artifact(
+            bs_target, bid, bs_archive_name, HOST_ARCHIVE_PATTERN % (bid, host_target), strict=True)
+
+        host_build_command_record_name = add_extension_prefix(BUILD_COMMAND_RECORD_NAME, f"{host_target}.{bid}")
+        other_artifacts.append(
+            fetch_build_server_artifact(
+                bs_target, bid, BUILD_COMMAND_RECORD_NAME, host_build_command_record_name, strict=True))
+
+    # Fetch the manifest
+    manifest_name: str  = f"manifest_{bid}.xml"
+    manifest_path: Path = fetch_build_server_artifact(bs_target_default, bid, manifest_name, manifest_name, strict=True)
+    other_artifacts.append(manifest_path)
+
+    # Fetch the profiles
+    for profile_name in PROFILE_NAMES:
+        other_artifacts.append(
+            fetch_build_server_artifact(
+                bs_target_default, bid, profile_name, add_extension_prefix(profile_name, str(bid))))
+
+    # Print a newline to make the fetch/cache usage visually distinct
+    print()
+    return (prebuilt_path_map, manifest_path, other_artifacts)
 
 
-def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path: Optional[Path],
-    version: str, overwrite: bool) -> None:
+def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path: Path,
+                              version: str, overwrite: bool) -> None:
 
     """
     Use the provided target-to-artifact path map to extract the provided
@@ -209,7 +264,7 @@ def unpack_prebuilt_artifacts(artifact_path_map: dict[str, Path], manifest_path:
             f"Failed to extract prebuilt artifact for {target}/{version}",
             cwd=target_and_version_path)
 
-        if manifest_path and target == HOST_TARGET_DEFAULT:
+        if target == HOST_TARGET_DEFAULT:
             shutil.copy(manifest_path, target_and_version_path)
 
         RUST_PREBUILT_REPO.add(target_and_version_path)
@@ -236,16 +291,48 @@ def update_symlink(targets: KeysView[str], version: str) -> None:
             RUST_PREBUILT_REPO.add(stable_bin_path)
 
 
-def update_prebuilts(prebuilt_ident: Union[int, Path], branch_name: str, version: str, overwrite: bool, issue: Optional[int]) -> None:
-    artifact_path_map, manifest_path = prepare_prebuilt_artifact(prebuilt_ident)
+def update_prebuilts(branch_name: str, overwrite: bool, version: str, bid: int,
+                     issue: Optional[int], prebuilt_path_map: dict[str, Path],
+                     manifest_path: Path) -> None:
+
+
     RUST_PREBUILT_REPO.create_or_checkout(branch_name, overwrite)
-    unpack_prebuilt_artifacts(artifact_path_map, manifest_path, version, overwrite)
-    update_symlink(artifact_path_map.keys(), version)
-    commit_message = make_commit_message(version, prebuilt_ident, issue)
+    unpack_prebuilt_artifacts(prebuilt_path_map, manifest_path, version, overwrite)
+    update_symlink(prebuilt_path_map.keys(), version)
+    commit_message = make_commit_message(version, bid, issue)
     RUST_PREBUILT_REPO.amend_or_commit(commit_message)
 
 
-def update_soong(branch_name: str, version: str, overwrite: bool) -> None:
+def update_toolchain(branch_name: str, overwrite: bool, version: str, bid: int, issue: Optional[int],
+                     other_artifacts: list[Path]) -> None:
+    TOOLCHAIN_REPO.create_or_checkout(branch_name, overwrite)
+
+    artifact_version_dir = TOOLCHAIN_ARTIFACTS_PATH / version
+
+    # Initialize artifact directory
+    if artifact_version_dir.exists():
+        if overwrite:
+            shutil.rmtree(artifact_version_dir)
+        else:
+            sys.exit(f"Toolchain artifact directory already exists: {artifact_version_dir}")
+
+    artifact_version_dir.mkdir(exist_ok=True)
+
+    # Copy over:
+    #  * Manifest
+    #  * Build commands
+    #  * Profiles
+    for artifact in other_artifacts:
+        shutil.copy(artifact, artifact_version_dir)
+
+    # Update paths.py
+    with open(TOOLCHAIN_PATH / "paths.py", "r+") as f:
+        replace_file_contents(f, re.sub(TOOLCHAIN_PATHS_SEARCH_PATTERN, TOOLCHAIN_PATHS_UPDATE_PATTERN % version, f.read()))
+
+    TOOLCHAIN_REPO.commit(make_commit_message(version, bid, issue))
+
+
+def update_soong(branch_name: str, overwrite: bool, version: str, bid: int, issue: int) -> None:
     """Update the Rust version number in Soong"""
 
     print("Updating Soong's RustDefaultVersion")
@@ -256,16 +343,22 @@ def update_soong(branch_name: str, version: str, overwrite: bool) -> None:
 
     # Add the file to Git after we are sure it has been written to and closed.
     SOONG_REPO.add(SOONG_GLOBAL_DEF_PATH)
-    SOONG_REPO.commit(f"Update `RustDefaultVersion` to {version}")
+    SOONG_REPO.commit(make_commit_message(version, bid, issue))
 
 
 def main() -> None:
     args = parse_args()
-    branch_name: str = args.branch or make_branch_name(args.version, isinstance(args.prebuilt_ident, Path))
+    branch_name: str = args.branch or make_branch_name(args.version)
+    bid: int = args.bid or get_lkgb()
 
     print()
-    update_prebuilts(args.prebuilt_ident, branch_name, args.version, args.overwrite, args.issue)
-    update_soong(branch_name, args.version, args.overwrite)
+
+    prebuilt_path_map, manifest_path, other_artifacts = fetch_prebuilt_artifacts(bid, args.chained)
+    if not args.download_only:
+        update_prebuilts(branch_name, args.overwrite, args.version, bid, args.issue, prebuilt_path_map, manifest_path)
+        update_toolchain(branch_name, args.overwrite, args.version, bid, args.issue, other_artifacts)
+        update_soong(branch_name, args.overwrite, args.version, bid, args.issue)
+
     print("Done")
 
 

@@ -28,12 +28,8 @@ from paths import (
     BASH_PATH,
     ENVSETUP_PATH,
     OBJCOPY_PATH,
-    PROFILE_NAME_LLVM,
-    PROFILE_NAME_LLVM_CS,
-    PROFILE_NAME_RUST,
-    PROFILE_SUBDIR_LLVM,
-    PROFILE_SUBDIR_LLVM_CS,
-    PROFILE_SUBDIR_RUST,
+    PROFILE_NAMES,
+    PROFILE_SUBDIRS,
     PROFDATA_PATH)
 
 GIT_REFERENCE_BRANCH = "aosp/master"
@@ -278,14 +274,9 @@ def export_profiles(src_path: Optional[Path], dist_path: Path) -> None:
         # Needed by mypy
         assert src_path is not None
 
-        if (src_path / PROFILE_SUBDIR_LLVM).exists():
-            export_profile(src_path / PROFILE_SUBDIR_LLVM, dist_path / PROFILE_NAME_LLVM)
-
-        if (src_path / PROFILE_SUBDIR_LLVM_CS).exists():
-            export_profile(src_path / PROFILE_SUBDIR_LLVM_CS, dist_path / PROFILE_NAME_LLVM_CS)
-
-        if (src_path / PROFILE_SUBDIR_RUST).exists():
-            export_profile(src_path / PROFILE_SUBDIR_RUST, dist_path / PROFILE_NAME_RUST)
+        for subdir, profile_name in zip(PROFILE_SUBDIRS, PROFILE_NAMES):
+            if (src_path / subdir).exists():
+                export_profile(src_path / subdir, dist_path / profile_name)
 
 
 def strip_symbols(obj_path: Path, flag: str = "--strip-unneeded") -> None:
