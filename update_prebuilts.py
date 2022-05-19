@@ -59,8 +59,8 @@ BUILD_SERVER_ARCHIVE_FORMAT_PATTERN: str = "rust-%s.tar.gz"
 HOST_ARCHIVE_PATTERN: str = "rust-%s-%s.tar.gz"
 HOST_TARGET_DEFAULT:  str = "linux-x86"
 
-TOOLCHAIN_PATHS_SEARCH_PATTERN = 'RUST_VERSION_STAGE0:(\s+)str(\s+)=(\s)"[^"]+"'
-TOOLCHAIN_PATHS_UPDATE_PATTERN = 'RUST_VERSION_STAGE0:\1str\2=\3"%s"'
+TOOLCHAIN_PATHS_SEARCH_PATTERN = 'RUST_VERSION_STAGE0:\s+str\s+=\s"[^"]+"'
+TOOLCHAIN_PATHS_UPDATE_PATTERN = 'RUST_VERSION_STAGE0: str = "%s"'
 
 RUST_PREBUILT_REPO = GitRepo(RUST_PREBUILT_PATH)
 SOONG_REPO         = GitRepo(SOONG_PATH)
@@ -109,7 +109,7 @@ def ensure_gcert_valid() -> None:
 
 
 def fetch_build_server_artifact(target: str, build_id: int, build_server_pattern: str,
-                                host_name: str, strict: bool = False) -> Path:
+                                host_name: str, strict: bool = False) -> Optional[Path]:
 
     dest: Path = DOWNLOADS_PATH / host_name
 
@@ -128,10 +128,15 @@ def fetch_build_server_artifact(target: str, build_id: int, build_server_pattern
             f"--target={target}",
             build_flag,
             build_server_pattern,
-            dest])
+            dest],
+            stderr=(None if strict else subprocess.DEVNULL))
 
-        if strict and result.returncode != 0:
-            sys.exit(f"Failed to fetch build server artifact {build_server_pattern} for target {target}")
+        if result.returncode != 0:
+            if strict:
+                sys.exit(f"Failed to fetch build server artifact {build_server_pattern} for target {target}")
+            else:
+                print(f"No file found on build server matching pattern {build_server_pattern}")
+                return None
 
     return dest
 
@@ -150,9 +155,12 @@ def get_lkgb() -> int:
     stderr=subprocess.DEVNULL)
 
     if result.returncode == 0:
-        bids = set(str(result.stdout).split("\n"))
+        bids = set([int(t.strip("'")) for t in result.stdout.decode().strip().split("\n")])
+
         if len(bids) == 1:
-            return int(list(bids)[0])
+            bid = list(bids)[0]
+            print(f"Last Known Good Build: {bid}")
+            return bid
         else:
             sys.exit("At least one target is broken; a fully green build is required to update prebuilts")
     else:
@@ -211,8 +219,9 @@ def fetch_prebuilt_artifacts(bid: int, chained: bool) -> tuple[dict[str, Path], 
 
     # Fetch the host-specific prebuilt archives and build commands
     for host_target, bs_target in build_server_target_map.items():
+        host_archive_name = HOST_ARCHIVE_PATTERN % (bid, host_target if not chained else f"{host_target}-chained")
         prebuilt_path_map[host_target] = fetch_build_server_artifact(
-            bs_target, bid, bs_archive_name, HOST_ARCHIVE_PATTERN % (bid, host_target), strict=True)
+            bs_target, bid, bs_archive_name, host_archive_name, strict=True)
 
         host_build_command_record_name = add_extension_prefix(BUILD_COMMAND_RECORD_NAME, f"{host_target}.{bid}")
         other_artifacts.append(
@@ -225,10 +234,13 @@ def fetch_prebuilt_artifacts(bid: int, chained: bool) -> tuple[dict[str, Path], 
     other_artifacts.append(manifest_path)
 
     # Fetch the profiles
-    for profile_name in PROFILE_NAMES:
-        other_artifacts.append(
-            fetch_build_server_artifact(
-                bs_target_default, bid, profile_name, add_extension_prefix(profile_name, str(bid))))
+    if chained:
+        for profile_name in PROFILE_NAMES:
+            profile_path = fetch_build_server_artifact(
+                bs_target_default, bid, profile_name, add_extension_prefix(profile_name, str(bid)))
+
+            if profile_path != None:
+                other_artifacts.append(profile_path)
 
     # Print a newline to make the fetch/cache usage visually distinct
     print()
@@ -326,9 +338,12 @@ def update_toolchain(branch_name: str, overwrite: bool, version: str, bid: int, 
         shutil.copy(artifact, artifact_version_dir)
 
     # Update paths.py
-    with open(TOOLCHAIN_PATH / "paths.py", "r+") as f:
+    paths_file_path = TOOLCHAIN_PATH / "paths.py"
+    with open(paths_file_path, "r+") as f:
         replace_file_contents(f, re.sub(TOOLCHAIN_PATHS_SEARCH_PATTERN, TOOLCHAIN_PATHS_UPDATE_PATTERN % version, f.read()))
 
+    TOOLCHAIN_REPO.add(artifact_version_dir)
+    TOOLCHAIN_REPO.add(paths_file_path)
     TOOLCHAIN_REPO.commit(make_commit_message(version, bid, issue))
 
 
@@ -350,6 +365,8 @@ def main() -> None:
     args = parse_args()
     branch_name: str = args.branch or make_branch_name(args.version)
     bid: int = args.bid or get_lkgb()
+
+    TOOLCHAIN_ARTIFACTS_PATH.mkdir(exist_ok=True)
 
     print()
 
