@@ -9,6 +9,7 @@ cflags = "$llvm_cflags"
 cxxflags = "$llvm_cxxflags"
 ldflags = "$llvm_ldflags"
 use-libcxx = true
+static-libstdcpp = false
 
 [build]
 target = $all_targets
