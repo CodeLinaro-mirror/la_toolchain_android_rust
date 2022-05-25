@@ -47,7 +47,7 @@ index dc14d260e9..6b222c5210 100644
 @@ -3,9 +3,11 @@ use crate::spec::TargetOptions;
  pub fn opts() -> TargetOptions {
      let mut base = super::linux_base::opts();
-     base.os = "android".to_string();
+     base.os = "android".into();
 +    base.is_like_android = true;
      base.dwarf_version = Some(2);
      base.position_independent_executables = true;
@@ -66,10 +66,10 @@ index 165505ee73..4c1203cd00 100644
 
  pub fn target() -> Target {
      let mut base = super::linux_gnu_base::opts();
-     base.cpu = "pentium4".to_string();
+     base.cpu = "pentium4".into();
      base.max_atomic_width = Some(64);
 +    base.supported_sanitizers = SanitizerSet::ADDRESS;
-     base.pre_link_args.entry(LinkerFlavor::Gcc).or_default().push("-m32".to_string());
+     base.pre_link_args.entry(LinkerFlavor::Gcc).or_default().push("-m32".into());
      // don't use probe-stack=inline-asm until rust#83139 and rust#84667 are resolved
      base.stack_probes = StackProbeType::Call;
 diff --git a/compiler/rustc_target/src/spec/mod.rs b/compiler/rustc_target/src/spec/mod.rs
